@@ -42,14 +42,15 @@ A lightweight Windows desktop application for exploring and inspecting FBX files
    Enter-VsDevShell -VsInstallPath: 'C:\\Program Files\\Microsoft Visual Studio\\...' -DevCmdArguments '-arch=x64'
    ```
 
-    After that you can build by using CMake and Ninja
+    After that you can build the runtime by using CMake and Ninja
 
    ```powershell
+   cd runtime
    cmake -B build -G Ninja
    cmake --build build --config Release
    ```
 
 3. **Run the application**
    
-   `./build/Release/fbxex.exe`
+   `.runtime/build/Release/fbxex.exe`
 
