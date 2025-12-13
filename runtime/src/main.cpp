@@ -1,9 +1,15 @@
-#include <AppCore/AppCore.h>
-#include <fbxsdk.h>
 #include <string>
+
+#include <AppCore/AppCore.h>
+#include <JavaScriptCore/JavaScript.h>
+
+#include <fbxsdk.h>
+
+#include "binders.hpp"
 
 static constexpr uint32_t WINDOW_WIDTH = 1024u;
 static constexpr uint32_t WINDOW_HEIGHT = 768u;
+
 
 struct FbxVersion {
   int major = 0;
@@ -24,6 +30,23 @@ FbxVersion QueryFbxVersion() {
   return version;
 }
 
+JSValueRef getFbxFileFormatVersion(JSContextRef ctx, JSObjectRef function,
+  JSObjectRef thisObject, size_t argumentCount, 
+  const JSValueRef arguments[], JSValueRef* exception) {
+
+  auto fbx_version_ = QueryFbxVersion();
+  if (!fbx_version_.ok) {
+    return JSValueMakeNull(ctx);
+  }
+
+  std::string version_text = 
+    std::to_string(fbx_version_.major) + "." +
+    std::to_string(fbx_version_.minor) + "." + 
+    std::to_string(fbx_version_.revision);
+  
+  return JSValueMakeString(ctx, JSStringCreateWithUTF8CString(version_text.c_str()));
+}
+
 class MyApp final : public ultralight::AppListener,
                     public ultralight::WindowListener,
                     public ultralight::LoadListener,
@@ -42,7 +65,7 @@ class MyApp final : public ultralight::AppListener,
       window_flags);
     overlay_ = ultralight::Overlay::Create(window_, 1, 1, 0, 0);
     OnResize(window_.get(), window_->width(), window_->height());
-    overlay_->view()->LoadURL("file:///app.html");
+    overlay_->view()->LoadURL("file:///index.html");
     app_->set_listener(this);
     window_->set_listener(this);
     overlay_->view()->set_load_listener(this);
@@ -62,16 +85,17 @@ class MyApp final : public ultralight::AppListener,
   void OnFinishLoading(ultralight::View* caller, uint64_t frame_id, bool is_main_frame, const ultralight::String& url) override {}
 
   void OnDOMReady(ultralight::View* caller, uint64_t frame_id, bool is_main_frame, const ultralight::String& url) override {
-    if (!fbx_version_.ok) {
-      return;
-    }
-    std::string version_text = "FBX SDK version: " + std::to_string(fbx_version_.major) + "." +
-                               std::to_string(fbx_version_.minor) + "." + std::to_string(fbx_version_.revision);
-    std::string script =
-        "var el=document.getElementById('fbx-version');"
-        "if(el){el.textContent='" +
-        version_text + "';}";
-    caller->EvaluateScript(ultralight::String(script.c_str()));
+
+    auto scoped_context = caller->LockJSContext(); 
+    JSContextRef ctx = (*scoped_context);
+
+    BindGlobals(ctx, {
+      {"__ul_getFbxFileFormatVersion", getFbxFileFormatVersion}
+    });
+
+    caller->EvaluateScript("window.__ultralight._isAvailable = true;");
+    caller->EvaluateScript("window.__remountApp();");
+
   }
 
   void OnChangeCursor(ultralight::View* caller, ultralight::Cursor cursor) override { window_->SetCursor(cursor); }
