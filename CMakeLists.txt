@@ -22,7 +22,6 @@ if(NOT DEFINED ULTRALIGHT_SDK_PATH)
   endif()
 endif()
 
-# Verify SDK exists
 if(NOT EXISTS "${ULTRALIGHT_SDK_PATH}/include/Ultralight")
   message(FATAL_ERROR 
     "Invalid Ultralight SDK path: ${ULTRALIGHT_SDK_PATH}\n"
@@ -31,6 +30,59 @@ if(NOT EXISTS "${ULTRALIGHT_SDK_PATH}/include/Ultralight")
 endif()
 
 message(STATUS "Ultralight SDK: ${ULTRALIGHT_SDK_PATH}")
+
+# Autodesk FBX SDK path - modify this or set via -DFBX_SDK_PATH
+if(NOT DEFINED FBX_SDK_PATH)
+  set(_fbx_candidate_roots
+    "$ENV{HOME}/Autodesk/FBX/FBX SDK"
+    "$ENV{PROGRAMFILES}/Autodesk/FBX/FBX SDK"
+  )
+  foreach(_root IN LISTS _fbx_candidate_roots)
+    if(NOT _root)
+      continue()
+    endif()
+    if(EXISTS "${_root}/include/fbxsdk.h")
+      set(FBX_SDK_PATH "${_root}")
+      break()
+    endif()
+  endforeach()
+endif()
+
+if(NOT DEFINED FBX_SDK_PATH OR NOT EXISTS "${FBX_SDK_PATH}/include/fbxsdk.h")
+  message(FATAL_ERROR
+    "Autodesk FBX SDK not found. Please set FBX_SDK_PATH:\n"
+    "  cmake -B build -DFBX_SDK_PATH=C:/path/to/Autodesk/FBX_SDK\n"
+    "\n"
+    "Download the SDK from: https://aps.autodesk.com/developer/overview/fbx-sdk"
+  )
+endif()
+
+set(FBX_SDK_LIB_BASE "${FBX_SDK_PATH}/lib/x64")
+
+function(_fbx_pick_library out_var base_dir config)
+  set(_names ${ARGN})
+  foreach(_name IN LISTS _names)
+    set(_candidate "${base_dir}/${config}/${_name}")
+    if(EXISTS "${_candidate}")
+      set(${out_var} "${_candidate}" PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+  set(${out_var} "" PARENT_SCOPE)
+endfunction()
+
+_fbx_pick_library(FBX_SDK_LIBRARY_RELEASE "${FBX_SDK_LIB_BASE}" "release" "libfbxsdk.lib" "libfbxsdk-md.lib" "libfbxsdk-mt.lib")
+_fbx_pick_library(FBX_SDK_XML_RELEASE "${FBX_SDK_LIB_BASE}" "release" "libxml2.lib" "libxml2-md.lib" "libxml2-mt.lib")
+_fbx_pick_library(FBX_SDK_ZLIB_RELEASE "${FBX_SDK_LIB_BASE}" "release" "zlib.lib" "zlib-md.lib" "zlib-mt.lib")
+
+foreach(_required_var IN ITEMS FBX_SDK_LIBRARY_RELEASE FBX_SDK_XML_RELEASE FBX_SDK_ZLIB_RELEASE)
+  if(NOT DEFINED ${_required_var} OR "${${_required_var}}" STREQUAL "")
+    message(FATAL_ERROR "Missing FBX SDK library (${_required_var}). Checked under ${FBX_SDK_LIB_BASE}")
+  endif()
+endforeach()
+
+message(STATUS "FBX SDK: ${FBX_SDK_PATH}")
+message(STATUS "FBX SDK toolchain: ${FBX_SDK_TOOLCHAIN_DIR}")
 
 # Create executable
 if(WIN32)
@@ -43,7 +95,10 @@ else()
 endif()
 
 # Set up include directories
-target_include_directories(fbxex PRIVATE "${ULTRALIGHT_SDK_PATH}/include")
+target_include_directories(fbxex PRIVATE
+  "${ULTRALIGHT_SDK_PATH}/include"
+  "${FBX_SDK_PATH}/include"
+)
 
 # Link libraries
 if(WIN32)
@@ -53,6 +108,9 @@ if(WIN32)
     UltralightCore.lib
     Ultralight.lib
     WebCore.lib
+    ${FBX_SDK_LIBRARY_RELEASE}
+    ${FBX_SDK_XML_RELEASE}
+    ${FBX_SDK_ZLIB_RELEASE}
   )
   
   # Copy DLLs to build output directory
@@ -72,6 +130,9 @@ if(WIN32)
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     "${ULTRALIGHT_SDK_PATH}/resources"
     "$<TARGET_FILE_DIR:fbxex>/assets/resources"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    "${FBX_SDK_LIB_BASE}/release/libfbxsdk.dll"
+    "$<TARGET_FILE_DIR:fbxex>/"
   )
   else()
     # error for unsupported platforms

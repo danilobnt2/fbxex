@@ -24,6 +24,15 @@ A lightweight Windows desktop application for exploring and inspecting FBX files
    
      But you can manually provide the path with the CMake flag `-DULTRALIGHT_SDK_PATH`
 
+   - Download the FBX SDK from https://aps.autodesk.com/developer/overview/fbx-sdk and install it somewhere on your machine.
+
+     CMake will try to autolocate the SDK at the following paths (`*` indicates check on all subfolders)
+
+     - `%PROGRAMFILES%/Autodesk/FBX/FBX SDK/*`
+     - `%HOME/Autodesk/FBX/FBX SDK/*`
+
+     But you can manually provide the path with the CMake flag `-DFBX_SDK_PATH`
+
 2. **Build with CMake**
 
    Make sure the Visual Studio Developer PowerShell (x64) is active so the MSVC toolchain and tools (for example `cl`, `link`, and `ninja`) are available.
