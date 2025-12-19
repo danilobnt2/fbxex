@@ -7,6 +7,7 @@ import { Spacer } from "@heroui/spacer";
 import "./index.css";
 
 import ul from "./ul";
+import { MenuBar } from "./containers";
 
 
 declare global {
@@ -37,12 +38,15 @@ function Root() {
   return (
     <React.StrictMode key={key}>
       <HeroUIProvider>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-5xl font-bold">fbxex</p>
-            <p className="text-2xl">The FBX Explorer and Inspector</p>
-            <Spacer y={4} />
-            <p>FBX file format version {getFbxFileFormatVersion()}</p>
+        <div className="h-screen flex flex-col">
+          <MenuBar />
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <p className="text-5xl font-bold">fbxex</p>
+              <p className="text-2xl">The FBX Explorer and Inspector</p>
+              <Spacer y={4} />
+              <p>FBX file format version {getFbxFileFormatVersion()}</p>
+            </div>
           </div>
         </div>
       </HeroUIProvider>

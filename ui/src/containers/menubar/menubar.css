@@ -1,0 +1,47 @@
+@reference "tailwindcss";
+
+@layer components {
+  .menu-bar {
+    @apply flex items-center pl-0 pr-0 select-none cursor-default text-[13px] h-8 border-b;
+    gap: 4px;
+    background-color: #3c3c3c;
+    color: #dcdcdc;
+    border-color: #1e1e1e;
+    font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  }
+
+  .menu-item {
+    @apply relative cursor-default px-2.5 py-1.5 rounded flex items-center h-full transition-colors duration-200;
+    gap: 6px;
+  }
+
+  .menu-item.is-hovered {
+    background-color: #2a2d2e;
+    color: #ffffff;
+  }
+
+  .menu-item.is-active {
+    background-color: #717171;
+    color: #ffffff;
+  }
+
+  .menu-dropdown {
+    @apply absolute top-full left-0 mt-0.5 text-[#f3f3f3] rounded border min-w-[160px] z-50 overflow-hidden py-1;
+    background-color: #252526;
+    border-color: #3c3c3c;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .drop-item {
+    @apply px-3 py-1.5 cursor-pointer text-[13px] text-[#f3f3f3];
+  }
+
+  .drop-item.is-hovered {
+    background-color: #717171;
+    color: #ffffff;
+  }
+
+  .menu-file-input {
+    @apply hidden;
+  }
+}
