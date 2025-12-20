@@ -89,6 +89,8 @@ if(WIN32)
   add_executable(fbxex WIN32
     src/main.cpp
     src/winmain.cpp
+    src/fbxclienteager.cpp
+    src/binders.cpp
   )
 else()
   message(FATAL_ERROR "This application currently only supports Windows.")

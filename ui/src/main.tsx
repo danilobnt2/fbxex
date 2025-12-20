@@ -3,11 +3,13 @@ import ReactDOM from "react-dom/client";
 
 import { HeroUIProvider } from "@heroui/system";
 import { Spacer } from "@heroui/spacer";
+import { Provider, useSelector } from "react-redux";
 
 import "./index.css";
 
 import ul from "./ul";
 import { MenuBar } from "./containers";
+import { AppState, store } from "./store";
 
 
 declare global {
@@ -25,8 +27,17 @@ const getFbxFileFormatVersion = () =>
   ul.isAvailable ? ul.getFbxFileFormatVersion() : "🤷";
 
 
+const buildMessage = (rootChildren: number[] | null) => {
+  if (rootChildren !== null) {
+    return `Inspected FBX file with ${rootChildren.length} root children.`;   
+  }
+  return "No FBX file selected.";
+}
+
+
 function Root() {
   const [key, setKey] = React.useState(0)
+  const rootChildren = useSelector((state: AppState) => state.rootChildren)
 
   React.useEffect(() => {
     window.__remountApp = () => setKey(k => k + 1)
@@ -34,6 +45,8 @@ function Root() {
       delete window.__remountApp
     }
   }, [])
+
+  let fileInspectedMessage = buildMessage(rootChildren);
 
   return (
     <React.StrictMode key={key}>
@@ -46,6 +59,7 @@ function Root() {
               <p className="text-2xl">The FBX Explorer and Inspector</p>
               <Spacer y={4} />
               <p>FBX file format version {getFbxFileFormatVersion()}</p>
+              <p>{fileInspectedMessage}</p>
             </div>
           </div>
         </div>
@@ -54,4 +68,8 @@ function Root() {
   )
 }
 
-ReactDOM.createRoot(document.getElementById("root")!).render(<Root />)
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <Provider store={store}>
+    <Root />
+  </Provider>
+)

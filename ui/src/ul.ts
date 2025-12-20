@@ -1,3 +1,5 @@
+import { FBXNode } from "./models/fbxnode";
+
 class Ultralight {
   private static _instance: Ultralight | null = null;
   private _isAvailable = false;
@@ -23,11 +25,25 @@ class Ultralight {
     return (window as any).__ul_getFbxFileFormatVersion();
   }
 
-  selectFbxFile(): string {
+  getFBXNode(id: number): FBXNode {
     if (!this.isAvailable) {
       throw new Error("Ultralight is not available.");
     }
-    return (window as any).__ulSelectFbxFile();
+    return (window as any).__ul_getFBXNode(id);
+  }
+
+  getFBXNodeChildren(id: number): number[] {
+    if (!this.isAvailable) {
+      throw new Error("Ultralight is not available.");
+    }
+    return (window as any).__ul_getFBXNodeChildren(id);
+  }
+
+  selectFbxFile(): boolean {
+    if (!this.isAvailable) {
+      throw new Error("Ultralight is not available.");
+    }
+    return (window as any).__ul_SelectFbxFile();
   }
 
   closeWindow(): void {

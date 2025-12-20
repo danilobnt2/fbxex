@@ -2,6 +2,9 @@
 
 #include <JavaScriptCore/JavaScript.h>
 #include <string>
+#include <string_view>
+
+#include "fbxnode.hpp"
 
 
 struct NativeFn {
@@ -35,3 +38,6 @@ inline void BindGlobals(JSContextRef ctx, std::initializer_list<NativeFn> fns)
     BindGlobalFunction(ctx, f.name, f.cb);
   }
 }
+
+JSValueRef BindFBXNode(JSContextRef ctx, const FBXNode& node);
+JSValueRef BindFBXNodeProps(JSContextRef ctx, const FBXNodeProps& props);

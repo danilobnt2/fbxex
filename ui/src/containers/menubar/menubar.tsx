@@ -2,6 +2,8 @@ import React from "react";
 import "./menubar.css";
 
 import ul from "../../ul";
+import { useDispatch } from "react-redux";
+import { AppDispatch, fileSelected } from "../../store";
 
 type MenuId = "file" | "help";
 type DropId = "open" | "close" | "about";
@@ -119,6 +121,19 @@ function Drop({ id, label, onClick }: DropProps) {
 }
 
 export default function MenuBar() {
+  const dispatch = useDispatch<AppDispatch>();
+
+  const handleOpen = () => {
+    if (!ul.isAvailable) {
+      alert("Ultralight not available.");
+      return;
+    }
+    const selected = ul.selectFbxFile();
+    if (selected) {
+      dispatch(fileSelected());
+    }
+  };
+
   const {
     rootRef,
     openMenu,
@@ -141,7 +156,7 @@ export default function MenuBar() {
             <Drop 
               id="open" 
               label="Open ..." 
-              onClick={() => ul.isAvailable ? ul.selectFbxFile() : alert("Ultralight not available.")}
+              onClick={handleOpen}
             />
             <Drop 
               id="close" 
