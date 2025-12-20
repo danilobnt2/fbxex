@@ -1,5 +1,6 @@
 #include <string>
 #include <memory>
+#include <cstdlib>
 
 #include <AppCore/AppCore.h>
 #include <JavaScriptCore/JavaScript.h>
@@ -54,12 +55,42 @@ JSValueRef getFbxFileFormatVersion(JSContextRef ctx, JSObjectRef function,
   return JSValueMakeString(ctx, JSStringCreateWithUTF8CString(version_text.c_str()));
 }
 
+struct AppOptions {
+  bool dev_mode = false;
+  int dev_port = 5173;
+};
+
+AppOptions ParseAppOptions(int argc, char* argv[]) {
+  AppOptions opts;
+  for (int i = 1; i < argc; ++i) {
+    const std::string arg = argv[i];
+    if (arg == "--dev") {
+      opts.dev_mode = true;
+    } 
+    else if (arg == "--dev-port" && i + 1 < argc) {
+      try {
+        int parsed_port = std::stoi(argv[i + 1]);
+        if (parsed_port > 0 && parsed_port <= 65535) {
+          opts.dev_port = parsed_port;
+        }
+        else {
+          throw std::runtime_error("Invalid port number specified");
+        }
+      } catch (...) {
+        throw std::runtime_error("Invalid port number specified");
+      }
+      ++i;
+    }
+  }
+  return opts;
+}
+
 class MyApp final : public ultralight::AppListener,
                     public ultralight::WindowListener,
                     public ultralight::LoadListener,
                     public ultralight::ViewListener {
  public:
-  MyApp() {
+  explicit MyApp(const std::string& start_url) : start_url_(start_url) {
     instance_ = this;
     fbx_client_eager_ = nullptr;
     app_ = ultralight::App::Create();
@@ -74,7 +105,7 @@ class MyApp final : public ultralight::AppListener,
       window_flags);
     overlay_ = ultralight::Overlay::Create(window_, 1, 1, 0, 0);
     OnResize(window_.get(), window_->width(), window_->height());
-    overlay_->view()->LoadURL("file:///index.html");
+    overlay_->view()->LoadURL(start_url_.c_str());
     app_->set_listener(this);
     window_->set_listener(this);
     overlay_->view()->set_load_listener(this);
@@ -231,11 +262,23 @@ class MyApp final : public ultralight::AppListener,
   ultralight::RefPtr<ultralight::Window> window_;
   ultralight::RefPtr<ultralight::Overlay> overlay_;
   std::unique_ptr<FBXClientEager> fbx_client_eager_;
+  std::string start_url_;
 
 };
 
-int main() {
-  MyApp app;
-  app.Run();
-  return 0;
+int main(int argc, char* argv[]) {
+  try {
+    const auto options = ParseAppOptions(argc, argv);
+    std::string start_url = "file:///index.html";
+    if (options.dev_mode) {
+      start_url = "http://localhost:" + std::to_string(options.dev_port);
+    }
+    MyApp app(start_url);
+    app.Run();
+    return 0;
+  } catch (const std::exception& ex) {
+    std::fprintf(stderr, "Fatal Error: %s\n", ex.what());
+    ultralight::ShowMessageBox("Fatal Error", ex.what());
+    return EXIT_FAILURE;
+  }
 }

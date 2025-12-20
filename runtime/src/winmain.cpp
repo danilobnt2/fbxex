@@ -3,9 +3,9 @@
 #include <windows.h>
 
 // Forward declaration of the normal main()
-int main();
+int main(int argc, char* argv[]);
 
 int WINAPI WinMain(HINSTANCE /*hInstance*/, HINSTANCE /*hPrevInstance*/, LPSTR /*lpCmdLine*/, int /*nShowCmd*/) {
-  return main();
+  return main(__argc, __argv);
 }
 #endif

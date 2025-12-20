@@ -5,6 +5,8 @@ project(fbxex CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(FBXEX_DEV_PORT "5173" CACHE STRING "Port used for the run-dev helper target")
+
 # Ultralight SDK path - modify this or set via -DULTRALIGHT_SDK_PATH
 if(NOT DEFINED ULTRALIGHT_SDK_PATH)
   # Try common locations
@@ -147,6 +149,14 @@ add_custom_command(TARGET fbxex POST_BUILD
   "${CMAKE_CURRENT_SOURCE_DIR}/assets"
   "$<TARGET_FILE_DIR:fbxex>/assets"
   COMMENT "Copying assets...")
+
+add_custom_target(run-dev
+  DEPENDS fbxex
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMAND ${CMAKE_COMMAND} -E echo "Starting fbxex in dev mode on http://localhost:${FBXEX_DEV_PORT}"
+  COMMAND $<TARGET_FILE:fbxex> --dev --dev-port ${FBXEX_DEV_PORT}
+  VERBATIM
+  COMMENT "Build and run the app against the dev UI server")
 
 # For MSVC, set startup project
 if(MSVC)

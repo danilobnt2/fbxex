@@ -61,7 +61,14 @@ A lightweight Windows desktop application for exploring and inspecting FBX files
    cmake --build build --config Release
    ```
 
+   To build and launch the runtime in dev mode (points at the UI dev server on localhost:5173 by default) in one step, use the `run-dev` target:
+
+   ```powershell
+   cmake --build build --config Release --target run-dev
+   ```
+
+   You can change the dev server port by re-configuring with `-DFBXEX_DEV_PORT=3000`.
+
 4. **Run the application**
    
    `.runtime/build/Release/fbxex.exe`
-
