@@ -22,6 +22,27 @@ class Ultralight {
     }
     return (window as any).__ul_getFbxFileFormatVersion();
   }
+
+  selectFbxFile(): string {
+    if (!this.isAvailable) {
+      throw new Error("Ultralight is not available.");
+    }
+    return (window as any).__ulSelectFbxFile();
+  }
+
+  closeWindow(): void {
+    if (!this.isAvailable) {
+      throw new Error("Ultralight is not available.");
+    }
+    (window as any).__ul_CloseWindow();
+  }
+  
+  openAboutDialog(): void {
+    if (!this.isAvailable) {
+      throw new Error("Ultralight is not available.");
+    }
+    (window as any).__ul_OpenAboutDialog();
+  }
 }
 
 const ultralight = Ultralight.instance;

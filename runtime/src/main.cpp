@@ -7,6 +7,10 @@
 
 #include "binders.hpp"
 
+#ifdef _WIN32
+#include "winfio.hpp"
+#endif
+
 static constexpr uint32_t WINDOW_WIDTH = 1024u;
 static constexpr uint32_t WINDOW_HEIGHT = 768u;
 
@@ -52,7 +56,8 @@ class MyApp final : public ultralight::AppListener,
                     public ultralight::LoadListener,
                     public ultralight::ViewListener {
  public:
-  explicit MyApp(FbxVersion fbx_version) : fbx_version_(fbx_version) {
+  MyApp() {
+    instance_ = this;
     app_ = ultralight::App::Create();
     auto window_flags = 
         ultralight::kWindowFlags_Titled 
@@ -90,6 +95,9 @@ class MyApp final : public ultralight::AppListener,
     JSContextRef ctx = (*scoped_context);
 
     BindGlobals(ctx, {
+      {"__ulSelectFbxFile", selectFbxFile},
+      {"__ul_CloseWindow", CloseWindow},
+      {"__ul_OpenAboutDialog", OpenAboutDialog},
       {"__ul_getFbxFileFormatVersion", getFbxFileFormatVersion}
     });
 
@@ -98,20 +106,67 @@ class MyApp final : public ultralight::AppListener,
 
   }
 
+  static JSValueRef CloseWindow(
+      JSContextRef ctx,
+      JSObjectRef /*function*/,
+      JSObjectRef /*thisObject*/,
+      size_t /*argumentCount*/,
+      const JSValueRef /*arguments*/[],
+      JSValueRef* /*exception*/) 
+  {
+    if (instance_ && instance_->window_) {
+      instance_->window_->Close();
+    }
+    return JSValueMakeUndefined(ctx);
+  }
+
+  static JSValueRef OpenAboutDialog(
+      JSContextRef ctx,
+      JSObjectRef /*function*/,
+      JSObjectRef /*thisObject*/,
+      size_t /*argumentCount*/,
+      const JSValueRef /*arguments*/[],
+      JSValueRef* /*exception*/) 
+  {
+    ultralight::ShowMessageBox("About", "FBX Explorer\nVersion 1.0.0");
+    return JSValueMakeUndefined(ctx);
+  }
+
+  static JSValueRef selectFbxFile(
+      JSContextRef ctx,
+      JSObjectRef /*function*/,
+      JSObjectRef /*thisObject*/,
+      size_t /*argumentCount*/,
+      const JSValueRef /*arguments*/[],
+      JSValueRef* /*exception*/) 
+  {
+    #ifdef _WIN32
+    if (!instance_ || !instance_->window_) {
+      return JSValueMakeString(ctx, JSStringCreateWithUTF8CString(""));
+    }
+    std::wstring wpath = OpenFileDialogWin32((HWND)instance_->window_->native_handle());
+    std::string path = WStringToUtf8(wpath);
+    if (!path.empty()) {
+      return JSValueMakeString(ctx, JSStringCreateWithUTF8CString(path.c_str()));
+    }
+    #endif
+    return JSValueMakeString(ctx, JSStringCreateWithUTF8CString(""));
+  }
+
+  inline static MyApp* instance_ = nullptr;
+
   void OnChangeCursor(ultralight::View* caller, ultralight::Cursor cursor) override { window_->SetCursor(cursor); }
 
   void OnChangeTitle(ultralight::View* caller, const ultralight::String& title) override { window_->SetTitle(title.utf8().data()); }
 
  private:
-  FbxVersion fbx_version_;
   ultralight::RefPtr<ultralight::App> app_;
   ultralight::RefPtr<ultralight::Window> window_;
   ultralight::RefPtr<ultralight::Overlay> overlay_;
 };
 
 int main() {
-  FbxVersion fbx_version = QueryFbxVersion();
-  MyApp app(fbx_version);
+  MyApp app;
   app.Run();
   return 0;
 }

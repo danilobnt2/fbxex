@@ -1,6 +1,8 @@
 import React from "react";
 import "./menubar.css";
 
+import ul from "../../ul";
+
 type MenuId = "file" | "help";
 type DropId = "open" | "close" | "about";
 
@@ -139,12 +141,12 @@ export default function MenuBar() {
             <Drop 
               id="open" 
               label="Open ..." 
-              onClick={() => alert("Open action triggered.")}
+              onClick={() => ul.isAvailable ? ul.selectFbxFile() : alert("Ultralight not available.")}
             />
             <Drop 
               id="close" 
               label="Close" 
-              onClick={() => alert("Close action triggered.")}
+              onClick={() => ul.isAvailable ? ul.closeWindow() : alert("Ultralight not available.")}
             />
           </Menu>
 
@@ -152,7 +154,7 @@ export default function MenuBar() {
             <Drop
               id="about"
               label="About"
-              onClick={() => alert("fbxex - The FBX Explorer and Inspector.")}
+              onClick={() => ul.isAvailable ? ul.openAboutDialog() : alert("Ultralight not available.")}
             />
           </Menu>
         </div>
