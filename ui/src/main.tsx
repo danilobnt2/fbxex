@@ -23,10 +23,6 @@ declare global {
 window.__ultralight = ul;
 
 
-const getFbxFileFormatVersion = () => 
-  ul.isAvailable ? ul.getFbxFileFormatVersion() : "🤷";
-
-
 const buildMessage = (rootChildren: number[] | null) => {
   if (rootChildren !== null) {
     return `Inspected FBX file with ${rootChildren.length} root children.`;   
@@ -58,7 +54,6 @@ function Root() {
               <p className="text-5xl font-bold">fbxex</p>
               <p className="text-2xl">The FBX Explorer and Inspector</p>
               <Spacer y={4} />
-              <p>FBX file format version {getFbxFileFormatVersion()}</p>
               <p>{fileInspectedMessage}</p>
             </div>
           </div>

@@ -92,6 +92,8 @@ if(WIN32)
     src/main.cpp
     src/winmain.cpp
     src/fbxclienteager.cpp
+    src/fbxexappmain.cpp
+    src/winfio.cpp
     src/binders.cpp
   )
 else()
