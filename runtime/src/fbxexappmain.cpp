@@ -23,7 +23,11 @@ FbxexAppMain::FbxexAppMain(const std::string& start_url)
     , fbx_client_eager_(nullptr)
 {
     instance_ = this;
-    app_ = ultralight::App::Create();
+    ultralight::Settings settings;
+    settings.app_name = "fbxex";
+    ultralight::Config config;
+    config.force_repaint = true; // needed for css scrollbars to work properly
+    app_ = ultralight::App::Create(settings, config);
     window_ = ultralight::Window::Create(
         app_->main_monitor(), 
         WINDOW_WIDTH, 
