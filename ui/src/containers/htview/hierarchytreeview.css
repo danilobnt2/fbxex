@@ -1,0 +1,59 @@
+@reference "tailwindcss";
+
+@layer components {
+  .hierarchy-tree-view {
+    @apply flex flex-col h-full border-r text-sm;
+  }
+
+  .ht-tree {
+    @apply overflow-auto;
+  }
+
+  .ht-header {
+    @apply border-b;
+  }
+
+  .ht-title {
+    @apply text-sm font-semibold;
+  }
+
+  .ht-subtitle {
+    @apply text-xs
+  }
+
+  .ht-row {
+    @apply flex items-center gap-1 min-w-max;
+  }
+
+  .ht-expander {
+    @apply w-3 h-3 flex items-center justify-center text-xs rounded border;
+  }
+
+  .ht-label {
+    @apply flex items-center gap-2 min-w-max;
+  }
+
+  .ht-node-name {
+    @apply text-xs;
+  }
+
+  .ht-node-id {
+    @apply text-xs text-[#636363];
+  }
+
+  .ht-status {
+    @apply text-xs;
+  }
+
+  .ht-status--error {
+    color: #b91c1c;
+  }
+
+  .ht-status--muted {
+    color: #808080;
+  }
+
+  .ht-empty {
+    @apply text-xs;
+  }
+}

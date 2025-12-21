@@ -8,7 +8,7 @@ import { Provider, useSelector } from "react-redux";
 import "./index.css";
 
 import ul from "./ul";
-import { MenuBar } from "./containers";
+import { HierarchyTreeView, MenuBar } from "./containers";
 import { AppState, store } from "./store";
 
 
@@ -33,7 +33,7 @@ const buildMessage = (rootChildren: number[] | null) => {
 
 function Root() {
   const [key, setKey] = React.useState(0)
-  const rootChildren = useSelector((state: AppState) => state.rootChildren)
+  const rootChildren = useSelector((state: AppState) => state.tree.nodes[state.tree.rootId].children);
 
   React.useEffect(() => {
     window.__remountApp = () => setKey(k => k + 1)
@@ -47,14 +47,19 @@ function Root() {
   return (
     <React.StrictMode key={key}>
       <HeroUIProvider>
-        <div className="h-screen flex flex-col">
+        <div className="h-screen flex flex-col text-slate-100 overflow-hidden min-h-0">
           <MenuBar />
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <p className="text-5xl font-bold">fbxex</p>
-              <p className="text-2xl">The FBX Explorer and Inspector</p>
-              <Spacer y={4} />
-              <p>{fileInspectedMessage}</p>
+          <div className="flex-1 flex overflow-hidden min-h-0">
+            <div className="w-[360px] max-w-md min-w-[300px] h-full min-h-0 flex flex-col overflow-hidden">
+              <HierarchyTreeView />
+            </div>
+            <div className="flex-1 flex items-center justify-center px-10 min-h-0">
+              <div className="text-center">
+                <p className="text-5xl font-bold">fbxex</p>
+                <p className="text-2xl">The FBX Explorer and Inspector</p>
+                <Spacer y={4} />
+                <p>{fileInspectedMessage}</p>
+              </div>
             </div>
           </div>
         </div>
