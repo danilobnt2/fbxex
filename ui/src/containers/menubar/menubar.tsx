@@ -1,9 +1,6 @@
 import React from "react";
 import "./menubar.css";
-
-import ul from "../../ul";
 import { useDispatch } from "react-redux";
-import { AppDispatch, fileSelected } from "../../store";
 
 type MenuId = "file" | "help";
 type DropId = "open" | "close" | "about";
@@ -120,17 +117,28 @@ function Drop({ id, label, onClick }: DropProps) {
   );
 }
 
-export default function MenuBar() {
-  const dispatch = useDispatch<AppDispatch>();
+export interface IPlatformUtils {
+  isPlatformAvailable: () => boolean;
+  selectFbxFile: () => boolean;
+  closeWindow: () => void;
+  openAboutDialog: () => void;
+  createFileSelectedAction: () => { type: string };
+  onPlatformNotAvailable?: () => void;
+}
+
+export default function MenuBar(platform: IPlatformUtils) {
+  const dispatch = useDispatch();
+  const handlePlatformNotAvailable = (
+    platform.onPlatformNotAvailable ?? (() => alert("Platform not available.")));
 
   const handleOpen = () => {
-    if (!ul.isAvailable) {
-      alert("Ultralight not available.");
+    if (!platform.isPlatformAvailable()) {
+      handlePlatformNotAvailable();
       return;
     }
-    const selected = ul.selectFbxFile();
+    const selected = platform.selectFbxFile();
     if (selected) {
-      dispatch(fileSelected());
+      dispatch(platform.createFileSelectedAction());
     }
   };
 
@@ -161,7 +169,13 @@ export default function MenuBar() {
             <Drop 
               id="close" 
               label="Close" 
-              onClick={() => ul.isAvailable ? ul.closeWindow() : alert("Ultralight not available.")}
+              onClick={() => {
+                if (!platform.isPlatformAvailable()) {
+                  handlePlatformNotAvailable();
+                  return;
+                }
+                platform.closeWindow();
+              }}
             />
           </Menu>
 
@@ -169,7 +183,13 @@ export default function MenuBar() {
             <Drop
               id="about"
               label="About"
-              onClick={() => ul.isAvailable ? ul.openAboutDialog() : alert("Ultralight not available.")}
+              onClick={() => {
+                if (!platform.isPlatformAvailable()) {
+                  handlePlatformNotAvailable();
+                  return;
+                }
+                platform.openAboutDialog();
+              }}
             />
           </Menu>
         </div>

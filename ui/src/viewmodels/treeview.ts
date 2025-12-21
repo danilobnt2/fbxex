@@ -1,5 +1,4 @@
 import { AnyAction, Middleware, UnknownAction } from "@reduxjs/toolkit";
-import ul from "../ul";
 
 export type TreeNodeId = number;
 
@@ -141,30 +140,39 @@ export const treeViewReducer = (
 
 export type TreeAwareState = { tree: TreeViewState };
 
-export const treeViewMiddleware: Middleware<{}, TreeAwareState> = (storeApi) => (next) => (action: UnknownAction) => {
-  if (action.type !== "TREE/EXPAND_REQUESTED") {
-    return next(action);
-  }
+export interface ITreePlatform {
+  isPlatformAvailable: () => boolean;
+  getFBXNodeChildren: (id: TreeNodeId) => TreeNodeId[];
+}
 
-  const { id } = action.payload as { id: TreeNodeId };
-  const currentNode = storeApi.getState().tree.nodes[id];
-
-  if (currentNode && (currentNode.children !== null || currentNode.isLoading)) {
-    return next(action);
-  }
-
-  const result = next(action);
-
-  try {
-    if (!ul.isAvailable) {
-      throw new Error("Ultralight bridge is not available.");
+export const createTreeViewMiddleware =
+  (platform: ITreePlatform): Middleware<{}, TreeAwareState> =>
+  (storeApi) =>
+  (next) =>
+  (action: UnknownAction) => {
+    if (action.type !== "TREE/EXPAND_REQUESTED") {
+      return next(action);
     }
-    const children = ul.getFBXNodeChildren(id);
-    storeApi.dispatch(treeChildrenLoaded(id, children));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    storeApi.dispatch(treeExpandFailed(id, message));
-  }
 
-  return result;
-};
+    const { id } = action.payload as { id: TreeNodeId };
+    const currentNode = storeApi.getState().tree.nodes[id];
+
+    if (currentNode && (currentNode.children !== null || currentNode.isLoading)) {
+      return next(action);
+    }
+
+    const result = next(action);
+
+    try {
+      if (!platform.isPlatformAvailable()) {
+        throw new Error("Ultralight bridge is not available.");
+      }
+      const children = platform.getFBXNodeChildren(id);
+      storeApi.dispatch(treeChildrenLoaded(id, children));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      storeApi.dispatch(treeExpandFailed(id, message));
+    }
+
+    return result;
+  };

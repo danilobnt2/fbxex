@@ -4,8 +4,9 @@ import {
   TreeViewAction,
   requestExpandNode,
   resetTree,
-  treeViewMiddleware,
+  createTreeViewMiddleware,
   treeViewReducer,
+  ITreePlatform,
 } from "./viewmodels/treeview";
 
 type FileSelectedAction = {
@@ -31,10 +32,13 @@ const fileSelectedMiddleware: Middleware<{}, TreeAwareState> = (storeApi) => (ne
   return result;
 };
 
-export const store = configureStore({
-  reducer: rootReducer,
-  middleware: (getDefaultMiddleware) => getDefaultMiddleware().concat(treeViewMiddleware, fileSelectedMiddleware),
-});
+export const createAppStore = (platform: ITreePlatform) =>
+  configureStore({
+    reducer: rootReducer,
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware().concat(createTreeViewMiddleware(platform), fileSelectedMiddleware),
+  });
 
-export type AppDispatch = typeof store.dispatch;
-export type AppState = ReturnType<typeof store.getState>;
+export type AppStore = ReturnType<typeof createAppStore>;
+export type AppDispatch = AppStore["dispatch"];
+export type AppState = ReturnType<AppStore["getState"]>;
