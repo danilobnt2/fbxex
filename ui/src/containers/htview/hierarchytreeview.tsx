@@ -9,6 +9,7 @@ export interface IHierarchyTreeService {
   getNode: (state: unknown, id: TreeNodeId) => TreeNode | undefined;
   createCollapseNodeAction: (id: TreeNodeId) => { type: string };
   createRequestExpandNodeAction: (id: TreeNodeId) => { type: string };
+  createSelectNodeAction: (id: TreeNodeId) => { type: string };
 }
 
 type TreeNodeRowProps = {
@@ -30,7 +31,7 @@ const TreeNodeRow: React.FC<TreeNodeRowProps> = ({ id, depth, rootId, tree }) =>
   const isLeaf = node.children !== null && node.children.length === 0;
   const isRootWaiting = isRoot && node.children === null && !node.isLoading && !node.error;
   const canToggle = !isLeaf && !isRootWaiting;
-  const label = isRoot ? `Root (${id})` : `Node ${id}`;
+  const label = node.previewProperties?.name || `.$Node ${id}`;
   const indent = depth * 16;
 
   const handleToggle = () => {
@@ -59,7 +60,11 @@ const TreeNodeRow: React.FC<TreeNodeRowProps> = ({ id, depth, rootId, tree }) =>
           <span className="ht-expander" aria-hidden />
         )}
 
-        <div className="ht-label">
+        <button
+          type="button"
+          className="ht-label"
+          onClick={() => dispatch(tree.createSelectNodeAction(id))}
+        >
           <span className="ht-node-name">
             {label}
             {isRootWaiting && " (select a file to load)"}
@@ -68,7 +73,7 @@ const TreeNodeRow: React.FC<TreeNodeRowProps> = ({ id, depth, rootId, tree }) =>
           {node.isLoading && <span className="ht-status">Loading...</span>}
           {node.error && <span className="ht-status ht-status--error">{node.error}</span>}
           {isLeaf && <span className="ht-status ht-status--muted">No children</span>}
-        </div>
+        </button>
       </div>
 
       {node.isExpanded && node.children && node.children.length > 0 && (

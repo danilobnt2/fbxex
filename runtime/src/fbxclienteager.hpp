@@ -13,12 +13,13 @@ class FBXClientEager : public IFBXClient {
         std::vector<size_t> getNodeChildren(size_t id) const override;
 
     private:
-        void buildNodeMap(FbxNode* fbx_node, size_t parent_id);
-
         struct NodeData {
             FBXNodeProps props;
             std::vector<size_t> children;
         };
+
+        void buildNodeMap(FbxNode* fbx_node, size_t parent_id);
+        void populateNodeData(FbxNode* fbx_node, NodeData& node_data);
 
         std::vector<NodeData> nodes_;
         FbxManager* manager_ = nullptr;

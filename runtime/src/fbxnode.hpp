@@ -1,12 +1,18 @@
 #pragma once
 
-#include <vector>
 #include <cstddef>
+#include <string>
+#include <vector>
+
+#include <nlohmann/json.hpp>
 
 class FBXNodeProps {
     public:
         FBXNodeProps() = default;
         ~FBXNodeProps() = default;
+
+        std::string name;
+        std::vector<nlohmann::json> properties;
 };
 
 class IFBXClient {
@@ -28,6 +34,10 @@ class FBXNode {
         size_t getID() const 
         { 
             return id_; 
+        }
+        const std::string& getName() const
+        {
+            return client_.getNodeProps(id_)->name;
         }
         const FBXNodeProps& getProps() const 
         { 

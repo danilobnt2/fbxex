@@ -7,6 +7,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(FBXEX_DEV_PORT "5173" CACHE STRING "Port used for the run-dev helper target")
 
+include(FetchContent)
+
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.3
+)
+
+FetchContent_MakeAvailable(nlohmann_json)
+
 # Ultralight SDK path - modify this or set via -DULTRALIGHT_SDK_PATH
 if(NOT DEFINED ULTRALIGHT_SDK_PATH)
   # Try common locations
@@ -93,6 +103,7 @@ if(WIN32)
     src/winmain.cpp
     src/fbxclienteager.cpp
     src/fbxexappmain.cpp
+    src/fbxdtserialize.cpp
     src/winfio.cpp
     src/binders.cpp
   )
@@ -114,6 +125,7 @@ if(WIN32)
     UltralightCore.lib
     Ultralight.lib
     WebCore.lib
+    nlohmann_json::nlohmann_json
     ${FBX_SDK_LIBRARY_RELEASE}
     ${FBX_SDK_XML_RELEASE}
     ${FBX_SDK_ZLIB_RELEASE}

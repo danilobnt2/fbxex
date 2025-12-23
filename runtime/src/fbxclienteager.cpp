@@ -1,4 +1,5 @@
 #include "fbxclienteager.hpp"
+#include "fbxdtserialize.hpp"
 
 #include <stdexcept>
 #include <string>
@@ -41,6 +42,7 @@ FBXClientEager::FBXClientEager(const std::string& path) {
     // id 0 is reserved for the root node.
     nodes_.push_back(NodeData{});
     FbxNode* root = scene_->GetRootNode();
+    populateNodeData(root, nodes_[0]);
     if (root) {
         for (int i = 0; i < root->GetChildCount(); ++i) {
             buildNodeMap(root->GetChild(i), 0);
@@ -77,6 +79,24 @@ std::vector<size_t> FBXClientEager::getNodeChildren(size_t id) const {
     return nodes_[id].children;
 }
 
+void FBXClientEager::populateNodeData(FbxNode* fbx_node, NodeData& node_data) {
+    if (!fbx_node) {
+        return;
+    }
+
+    node_data.props.name = fbx_node->GetName();
+
+    FbxProperty property = fbx_node->GetFirstProperty();
+    while (property.IsValid()) {
+        try {
+            node_data.props.properties.push_back(SerializeFbxProperty(property));
+        } catch (const std::exception&) {
+            // Unsupported property types are skipped.
+        }
+        property = fbx_node->GetNextProperty(property);
+    }
+}
+
 void FBXClientEager::buildNodeMap(FbxNode* fbx_node, size_t parent_id) {
     if (!fbx_node) {
         return;
@@ -84,6 +104,7 @@ void FBXClientEager::buildNodeMap(FbxNode* fbx_node, size_t parent_id) {
 
     size_t current_id = nodes_.size();
     nodes_.push_back(NodeData{});
+    populateNodeData(fbx_node, nodes_.back());
 
     if (parent_id < nodes_.size()) {
         nodes_[parent_id].children.push_back(current_id);
