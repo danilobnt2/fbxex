@@ -2,43 +2,43 @@
 
 @layer components {
   .menu-bar {
-    @apply flex items-center pl-0 pr-0 select-none cursor-default text-[13px] h-8 border-b;
-    gap: 4px;
-    background-color: #3c3c3c;
-    color: #dcdcdc;
-    border-color: #1e1e1e;
+    @apply bg-[#3c3c3c] text-[#dcdcdc] border-b border-[#1e1e1e] px-2 min-h-0 h-8;
     font-family: "Segoe UI", "Helvetica Neue", sans-serif;
   }
 
-  .menu-item {
-    @apply relative cursor-default px-2.5 py-1.5 rounded flex items-center h-full transition-colors duration-200;
-    gap: 6px;
+  .menu-content {
+    @apply flex items-center gap-1 h-8 px-0;
   }
 
-  .menu-item.is-hovered {
-    background-color: #2a2d2e;
-    color: #ffffff;
+  .menu-navbar-item {
+    @apply h-8 flex items-center;
   }
 
-  .menu-item.is-active {
-    background-color: #717171;
-    color: #ffffff;
+  .menu-trigger {
+    @apply h-8 min-h-0 px-3 text-[13px] font-normal text-[#dcdcdc] shadow-none bg-transparent;
+    @apply hover:bg-[#2a2d2e] hover:text-white focus-visible:bg-[#2a2d2e] focus-visible:text-white active:bg-[#717171] active:text-white;
   }
 
   .menu-dropdown {
-    @apply absolute top-full left-0 mt-0.5 text-[#f3f3f3] rounded border min-w-[160px] z-50 overflow-hidden py-1;
+    @apply min-w-[160px] rounded border shadow-lg py-1 z-50;
     background-color: #252526;
     border-color: #3c3c3c;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   }
 
   .drop-item {
-    @apply px-3 py-1.5 cursor-pointer text-[13px] text-[#f3f3f3];
+    @apply text-[13px] px-3 py-2 text-[#f3f3f3] cursor-pointer;
+    @apply hover:bg-[#717171] hover:text-white;
   }
 
-  .drop-item.is-hovered {
+  .drop-item[data-pressed="true"] {
     background-color: #717171;
     color: #ffffff;
+  }
+
+  .drop-item[data-focus-visible="true"] {
+    outline: none;
+    background-color: #2a2d2e;
   }
 
   .menu-file-input {

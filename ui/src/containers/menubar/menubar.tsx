@@ -1,121 +1,11 @@
 import React from "react";
-import "./menubar.css";
+import { Button } from "@heroui/button";
+import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem } from "@heroui/dropdown";
+import { Navbar, NavbarContent, NavbarItem } from "@heroui/navbar";
+import { Key } from "@react-types/shared";
 import { useDispatch } from "react-redux";
 
-type MenuId = "file" | "help";
-type DropId = "open" | "close" | "about";
-
-function classNames(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(" ");
-}
-
-function useMenuState() {
-  const [openMenu, setOpenMenu] = React.useState<MenuId | null>(null);
-  const [hoveredMenu, setHoveredMenu] = React.useState<MenuId | null>(null);
-  const [hoveredDrop, setHoveredDrop] = React.useState<DropId | null>(null);
-  const rootRef = React.useRef<HTMLDivElement | null>(null);
-
-  React.useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      if (!rootRef.current?.contains(e.target as Node)) setOpenMenu(null);
-    }
-    document.addEventListener("click", onDocClick);
-    return () => document.removeEventListener("click", onDocClick);
-  }, []);
-
-  return {
-    rootRef,
-    openMenu,
-    hoveredMenu,
-    hoveredDrop,
-    toggleMenu: (id: MenuId) => setOpenMenu((m) => (m === id ? null : id)),
-    setHoveredMenu,
-    setHoveredDrop,
-    closeMenu: () => setOpenMenu(null),
-  };
-}
-
-type MenuStateContextValue = {
-  openMenu: MenuId | null;
-  hoveredMenu: MenuId | null;
-  toggleMenu: (id: MenuId) => void;
-  setHoveredMenu: (id: MenuId | null) => void;
-};
-
-const MenuStateContext = React.createContext<MenuStateContextValue | null>(null);
-
-function useMenuStateContext() {
-  const ctx = React.useContext(MenuStateContext);
-  if (!ctx) throw new Error("MenuStateContext used outside provider");
-  return ctx;
-}
-
-type MenuContextValue = {
-  hoveredDrop: DropId | null;
-  setHoveredDrop: React.Dispatch<React.SetStateAction<DropId | null>>;
-  closeMenu: () => void;
-};
-
-const MenuContext = React.createContext<MenuContextValue | null>(null);
-
-function useMenuContext() {
-  const ctx = React.useContext(MenuContext);
-  if (!ctx) throw new Error("MenuContext used outside provider");
-  return ctx;
-}
-
-type MenuProps = {
-  id: MenuId;
-  label: string;
-  children: React.ReactNode;
-};
-
-function Menu({ id, label, children }: MenuProps) {
-  const { openMenu, hoveredMenu, toggleMenu, setHoveredMenu } = useMenuStateContext();
-  const isOpen = openMenu === id;
-  const isHovered = hoveredMenu === id;
-
-  return (
-    <div
-      className={classNames("menu-item", isHovered && "is-hovered", isOpen && "is-active")}
-      onClick={(e) => {
-        e.stopPropagation();
-        toggleMenu(id);
-      }}
-      onMouseEnter={() => setHoveredMenu(id)}
-      onMouseLeave={() => setHoveredMenu(null)}
-    >
-      {label}
-      {isOpen && <div className="menu-dropdown" role="menu">{children}</div>}
-    </div>
-  );
-}
-
-type DropProps = {
-  id: DropId;
-  label: string;
-  onClick: () => void;
-};
-
-function Drop({ id, label, onClick }: DropProps) {
-  const { hoveredDrop, closeMenu, setHoveredDrop } = useMenuContext();
-  const isHovered = hoveredDrop === id;
-
-  return (
-    <div
-      className={classNames("drop-item", isHovered && "is-hovered")}
-      onClick={(e) => {
-        e.stopPropagation();
-        closeMenu();
-        onClick();
-      }}
-      onMouseEnter={() => setHoveredDrop(id)}
-      onMouseLeave={() => setHoveredDrop(null)}
-    >
-      {label}
-    </div>
-  );
-}
+import "./menubar.css";
 
 export interface IPlatformUtils {
   isPlatformAvailable: () => boolean;
@@ -142,58 +32,92 @@ export default function MenuBar(platform: IPlatformUtils) {
     }
   };
 
-  const {
-    rootRef,
-    openMenu,
-    hoveredMenu,
-    hoveredDrop,
-    toggleMenu,
-    setHoveredMenu,
-    setHoveredDrop,
-    closeMenu,
-  } = useMenuState();
+  const handleFileMenuAction = React.useCallback((key: Key) => {
+    if (key === "open") {
+      handleOpen();
+      return;
+    }
+    if (key === "close") {
+      if (!platform.isPlatformAvailable()) {
+        handlePlatformNotAvailable();
+        return;
+      }
+      platform.closeWindow();
+    }
+  }, [platform, handlePlatformNotAvailable, handleOpen]);
+
+  const handleHelpMenuAction = React.useCallback((key: Key) => {
+    if (key !== "about") return;
+    if (!platform.isPlatformAvailable()) {
+      handlePlatformNotAvailable();
+      return;
+    }
+    platform.openAboutDialog();
+  }, [platform, handlePlatformNotAvailable]);
 
   return (
-    <MenuStateContext.Provider
-      value={{ openMenu, hoveredMenu, toggleMenu, setHoveredMenu }}
+    <Navbar
+      height="2rem"
+      maxWidth="full"
+      classNames={{
+        base: "menu-bar",
+        wrapper: "max-w-full px-0 min-h-0 h-8",
+        content: "menu-content",
+        item: "menu-navbar-item",
+      }}
     >
-      <MenuContext.Provider value={{ hoveredDrop, setHoveredDrop, closeMenu }}>
-        <div ref={rootRef} className="menu-bar">
-          
-          <Menu id="file" label="File">
-            <Drop 
-              id="open" 
-              label="Open ..." 
-              onClick={handleOpen}
-            />
-            <Drop 
-              id="close" 
-              label="Close" 
-              onClick={() => {
-                if (!platform.isPlatformAvailable()) {
-                  handlePlatformNotAvailable();
-                  return;
-                }
-                platform.closeWindow();
-              }}
-            />
-          </Menu>
+      <NavbarContent justify="start" className="menu-content">
+        <Dropdown>
+          <NavbarItem className="menu-navbar-item">
+            <DropdownTrigger>
+              <Button
+                disableRipple
+                size="sm"
+                variant="light"
+                className="menu-trigger"
+              >
+                File
+              </Button>
+            </DropdownTrigger>
+          </NavbarItem>
+          <DropdownMenu
+            aria-label="File menu"
+            onAction={handleFileMenuAction}
+            className="menu-dropdown"
+            itemClasses={{
+              base: "drop-item",
+            }}
+          >
+            <DropdownItem key="open">Open ...</DropdownItem>
+            <DropdownItem key="close">Close</DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
 
-          <Menu id="help" label="Help">
-            <Drop
-              id="about"
-              label="About"
-              onClick={() => {
-                if (!platform.isPlatformAvailable()) {
-                  handlePlatformNotAvailable();
-                  return;
-                }
-                platform.openAboutDialog();
-              }}
-            />
-          </Menu>
-        </div>
-      </MenuContext.Provider>
-    </MenuStateContext.Provider>
+        <Dropdown>
+          <NavbarItem className="menu-navbar-item">
+            <DropdownTrigger>
+              <Button
+                disableRipple
+                size="sm"
+                variant="light"
+                className="menu-trigger"
+              >
+                Help
+              </Button>
+            </DropdownTrigger>
+          </NavbarItem>
+          <DropdownMenu
+            aria-label="Help menu"
+            onAction={handleHelpMenuAction}
+            className="menu-dropdown"
+            itemClasses={{
+              base: "drop-item",
+            }}
+          >
+            <DropdownItem key="about">About</DropdownItem>
+          </DropdownMenu>
+        </Dropdown>
+      </NavbarContent>
+    </Navbar>
   );
 }
