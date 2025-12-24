@@ -2,15 +2,17 @@
 
 @layer components {
   .hierarchy-tree-view {
-    @apply flex flex-col h-full border-r text-sm;
+    @apply h-full;
   }
 
-  .ht-tree {
-    @apply overflow-auto;
+  .ht-card {
+    @apply h-full flex flex-col border bg-[#121212] text-[#e5e7eb];
+    border-color: #2d2d2d;
   }
 
   .ht-header {
-    @apply border-b;
+    @apply flex flex-col gap-1 px-3 py-2 border-b;
+    border-color: #2d2d2d;
   }
 
   .ht-title {
@@ -18,42 +20,65 @@
   }
 
   .ht-subtitle {
-    @apply text-xs
+    @apply text-xs;
+    color: #9ca3af;
+  }
+
+  .ht-body {
+    @apply p-0 flex-1 overflow-hidden;
+  }
+
+  .ht-tree {
+    @apply h-full px-2 py-2 overflow-auto;
   }
 
   .ht-row {
-    @apply flex items-center gap-1 min-w-max;
+    @apply flex items-center gap-2 min-w-max py-1;
   }
 
   .ht-expander {
-    @apply w-3 h-3 flex items-center justify-center text-xs rounded border;
+    @apply w-7 h-7;
+  }
+
+  .ht-expander-placeholder {
+    @apply w-3 h-3;
   }
 
   .ht-label {
-    @apply flex items-center gap-2 min-w-max;
+    @apply flex items-center justify-start gap-2 min-w-max px-2 py-1 text-left;
+  }
+
+  .ht-label--selected {
+    @apply bg-[#1f2937];
+  }
+
+  .ht-label-text {
+    @apply flex flex-col text-left gap-[2px];
   }
 
   .ht-node-name {
-    @apply text-xs;
+    @apply text-sm font-medium;
   }
 
   .ht-node-id {
-    @apply text-xs text-[#636363];
-  }
-
-  .ht-status {
     @apply text-xs;
+    color: #9ca3af;
   }
 
-  .ht-status--error {
-    color: #b91c1c;
+  .ht-statuses {
+    @apply flex items-center gap-1;
   }
 
-  .ht-status--muted {
-    color: #808080;
+  .ht-spinner {
+    @apply w-3 h-3;
+  }
+
+  .ht-chip {
+    @apply h-5 min-h-0 px-2 py-0 text-[11px] leading-tight;
   }
 
   .ht-empty {
-    @apply text-xs;
+    @apply text-xs px-2 py-1;
+    color: #9ca3af;
   }
 }

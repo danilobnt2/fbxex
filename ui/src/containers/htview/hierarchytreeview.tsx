@@ -1,4 +1,9 @@
 import React from "react";
+import { Button } from "@heroui/button";
+import { Card, CardBody, CardHeader } from "@heroui/card";
+import { Chip } from "@heroui/chip";
+import { ScrollShadow } from "@heroui/scroll-shadow";
+import { Spinner } from "@heroui/spinner";
 import { useDispatch, useSelector } from "react-redux";
 
 import "./hierarchytreeview.css";
@@ -44,36 +49,79 @@ const TreeNodeRow: React.FC<TreeNodeRowProps> = ({ id, depth, rootId, tree }) =>
   };
 
   return (
-    <div role="treeitem" aria-expanded={canToggle ? node.isExpanded : undefined} aria-level={depth + 1}>
+    <div
+      role="treeitem"
+      aria-expanded={canToggle ? node.isExpanded : undefined}
+      aria-level={depth + 1}
+      aria-selected={node.isSelected || undefined}
+    >
       <div className="ht-row" style={{ paddingLeft: `${indent}px` }}>
         {canToggle ? (
-          <button
-            type="button"
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            radius="sm"
             className="ht-expander"
-            onClick={handleToggle}
-            disabled={node.isLoading}
+            onPress={handleToggle}
+            isDisabled={node.isLoading}
             aria-label={node.isExpanded ? "Collapse node" : "Expand node"}
           >
-            {node.isExpanded ? "-" : "+"}
-          </button>
+            {node.isExpanded ? "−" : "+"}
+          </Button>
         ) : (
-          <span className="ht-expander" aria-hidden />
+          <Button
+            isIconOnly
+            size="sm"
+            variant="light"
+            radius="sm"
+            className="ht-expander"
+            isDisabled
+            aria-hidden
+          >
+            <span className="ht-expander-placeholder" />
+          </Button>
         )}
 
-        <button
-          type="button"
-          className="ht-label"
-          onClick={() => dispatch(tree.createSelectNodeAction(id))}
+        <Button
+          size="sm"
+          variant={node.isSelected ? "flat" : "light"}
+          radius="sm"
+          className={`ht-label ${node.isSelected ? "ht-label--selected" : ""}`}
+          onPress={() => dispatch(tree.createSelectNodeAction(id))}
         >
-          <span className="ht-node-name">
-            {label}
-            {isRootWaiting && " (select a file to load)"}
-          </span>
-          <span className="ht-node-id">#{node.id}</span>
-          {node.isLoading && <span className="ht-status">Loading...</span>}
-          {node.error && <span className="ht-status ht-status--error">{node.error}</span>}
-          {isLeaf && <span className="ht-status ht-status--muted">No children</span>}
-        </button>
+          <div className="ht-label-text">
+            <span className="ht-node-name">
+              {label}
+              {isRootWaiting && " (select a file to load)"}
+            </span>
+            <span className="ht-node-id">#{node.id}</span>
+          </div>
+
+          <div className="ht-statuses">
+            {node.isLoading && (
+              <Chip
+                size="sm"
+                variant="flat"
+                color="primary"
+                className="ht-chip"
+                startContent={<Spinner size="sm" color="primary" className="ht-spinner" />}
+              >
+                Loading
+              </Chip>
+            )}
+            {node.error && (
+              <Chip size="sm" variant="flat" color="danger" className="ht-chip">
+                {node.error}
+              </Chip>
+            )}
+            {isLeaf && !node.isLoading && !node.error && (
+              <Chip size="sm" variant="flat" color="default" className="ht-chip">
+                No children
+              </Chip>
+            )}
+          </div>
+        </Button>
       </div>
 
       {node.isExpanded && node.children && node.children.length > 0 && (
@@ -96,17 +144,21 @@ export default function HierarchyTreeView(tree: IHierarchyTreeService) {
   }
 
   return (
-    <div className="hierarchy-tree-view">
-      <div className="ht-header">
+    <Card className="hierarchy-tree-view ht-card" radius="sm" shadow="none">
+      <CardHeader className="ht-header">
         <div className="ht-title">Hierarchy</div>
         <div className="ht-subtitle">Expand nodes to inspect the FBX structure.</div>
-      </div>
-      <div className="ht-tree">
-        <TreeNodeRow id={rootId} depth={0} rootId={rootId} tree={tree} />
-        {!rootNode.isLoading && !rootNode.error && rootNode.children === null && (
-          <div className="ht-empty">Open an FBX file to populate the tree.</div>
-        )}
-      </div>
-    </div>
+      </CardHeader>
+      <CardBody className="ht-body">
+        <ScrollShadow className="ht-tree">
+          <div role="tree" aria-label="FBX hierarchy">
+            <TreeNodeRow id={rootId} depth={0} rootId={rootId} tree={tree} />
+            {!rootNode.isLoading && !rootNode.error && rootNode.children === null && (
+              <div className="ht-empty">Open an FBX file to populate the tree.</div>
+            )}
+          </div>
+        </ScrollShadow>
+      </CardBody>
+    </Card>
   );
 }

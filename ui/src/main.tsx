@@ -96,10 +96,11 @@ function Root() {
             </div>
             <div className="flex-1 flex pl-2 pr-0 min-h-0 overflow-hidden">
               <Textarea
-                className="flex-1 h-full min-h-0"
+                className="flex-1 w-full h-full min-h-0"
                 classNames={{
-                  inputWrapper: "h-full min-h-0",
-                  innerWrapper: "h-full min-h-0",
+                  base: "w-full h-full flex-1 min-h-0",
+                  inputWrapper: "w-full h-full min-h-0",
+                  innerWrapper: "w-full h-full min-h-0",
                   input: "h-full min-h-0 overflow-auto"
                 }}
                 disableAutosize
