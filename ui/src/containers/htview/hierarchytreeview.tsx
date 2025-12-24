@@ -144,7 +144,7 @@ export default function HierarchyTreeView(tree: IHierarchyTreeService) {
   }
 
   return (
-    <Card className="hierarchy-tree-view ht-card" radius="sm" shadow="none">
+    <Card className="hierarchy-tree-view ht-card" radius="none" shadow="none">
       <CardHeader className="ht-header">
         <div className="ht-title">Hierarchy</div>
         <div className="ht-subtitle">Expand nodes to inspect the FBX structure.</div>

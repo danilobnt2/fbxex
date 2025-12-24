@@ -12,7 +12,20 @@
 #include "fbxnode.hpp"
 
 #ifdef _WIN32
+#include <windows.h>
+#include <dwmapi.h>
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_CAPTION_COLOR
+#define DWMWA_CAPTION_COLOR 35
+#endif
+#ifndef DWMWA_TEXT_COLOR
+#define DWMWA_TEXT_COLOR 36
+#endif
+#pragma comment(lib, "Dwmapi.lib")
 #include "winfio.hpp"
+#include "resource.h"
 #endif
 
 #include "fbxexappmain.hpp"
@@ -35,6 +48,37 @@ FbxexAppMain::FbxexAppMain(const std::string& start_url)
         false
         , ultralight::kWindowFlags_Titled 
         | ultralight::kWindowFlags_Resizable);
+
+#ifdef _WIN32
+    const auto hwnd = static_cast<HWND>(window_->native_handle());
+    if (hwnd) {
+        const HICON icon = static_cast<HICON>(LoadImage(
+            GetModuleHandle(nullptr),
+            MAKEINTRESOURCE(IDI_APP_ICON),
+            IMAGE_ICON,
+            0,
+            0,
+            LR_DEFAULTSIZE));
+        if (icon) {
+            SendMessage(hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(icon));
+            SendMessage(hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(icon));
+        }
+
+        const COLORREF caption = RGB(20, 21, 24);
+        const COLORREF text = RGB(232, 234, 237);
+        const BOOL dark = TRUE;
+        DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark, sizeof(dark));
+        DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &caption, sizeof(caption));
+        DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, &text, sizeof(text));
+
+        LONG style = GetWindowLong(hwnd, GWL_STYLE);
+        style |= WS_MINIMIZEBOX | WS_MAXIMIZEBOX;
+        SetWindowLong(hwnd, GWL_STYLE, style);
+        SetWindowPos(hwnd, nullptr, 0, 0, 0, 0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
+    }
+#endif
+
     overlay_ = ultralight::Overlay::Create(window_, 1, 1, 0, 0);
     OnResize(window_.get(), window_->width(), window_->height());
     overlay_->view()->LoadURL(start_url_.c_str());

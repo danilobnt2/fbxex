@@ -5,7 +5,7 @@ import { HeroUIProvider } from "@heroui/system";
 import { Spacer } from "@heroui/spacer";
 import { Provider, useSelector } from "react-redux";
 
-import "./index.css";
+import "./main.css";
 
 import ul from "./ul";
 import { HierarchyTreeView, MenuBar } from "./containers";
@@ -58,6 +58,7 @@ class ReduxHierarchyTreeService implements IHierarchyTreeService {
 
 const treePlatform = new UltralightTreePlatform();
 const store = createAppStore(treePlatform);
+const APP_VERSION = "0.0.0";
 
 function Root() {
   const [key, setKey] = React.useState(0)
@@ -88,25 +89,28 @@ function Root() {
   return (
     <React.StrictMode key={key}>
       <HeroUIProvider>
-        <div className="h-screen flex flex-col text-slate-100 overflow-hidden min-h-0">
+        <div className="app-shell text-slate-100">
           <MenuBar {...platformUtils} />
-          <div className="flex-1 flex overflow-hidden min-h-0">
-            <div className="w-[360px] max-w-md min-w-[300px] h-full min-h-0 flex flex-col overflow-hidden">
+          <div className="app-main">
+            <div className="sidebar">
               <HierarchyTreeView {...hierarchyTreeService} />
             </div>
-            <div className="flex-1 flex pl-2 pr-0 min-h-0 overflow-hidden">
+            <div className="properties-pane">
               <Textarea
-                className="flex-1 w-full h-full min-h-0"
                 classNames={{
-                  base: "w-full h-full flex-1 min-h-0",
-                  inputWrapper: "w-full h-full min-h-0",
-                  innerWrapper: "w-full h-full min-h-0",
-                  input: "h-full min-h-0 overflow-auto"
+                  base: "properties-base",
+                  inputWrapper: "properties-wrapper",
+                  innerWrapper: "properties-inner",
+                  input: "properties-input"
                 }}
                 disableAutosize
                 readOnly
                 value={selectedNodePropsStr} />
             </div>
+          </div>
+          <div className="status-bar">
+            <span className="status-item">FBX Explorer v{APP_VERSION}</span>
+            <span className="status-item">Ready</span>
           </div>
         </div>
       </HeroUIProvider>

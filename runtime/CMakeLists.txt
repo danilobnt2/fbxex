@@ -106,6 +106,7 @@ if(WIN32)
     src/fbxdtserialize.cpp
     src/winfio.cpp
     src/binders.cpp
+    src/resource.rc
   )
 else()
   message(FATAL_ERROR "This application currently only supports Windows.")
