@@ -1,0 +1,45 @@
+name: "Bug report"
+description: "Report a reproducible bug or regression."
+title: "[BUG] <concise summary>"
+labels: ["bug"]
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: Briefly describe the problem.
+      placeholder: Unexpected error when loading FBX file
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Provide a minimal set of steps. Include test data or commands when relevant.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should happen?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What actually happened? Include logs or screenshots if useful.
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: OS, compiler/toolchain versions, and any configuration details.
+      placeholder: |
+        - OS:
+        - fbxex version:
+        - Other details:
