@@ -58,7 +58,7 @@ class ReduxHierarchyTreeService implements IHierarchyTreeService {
 
 const treePlatform = new UltralightTreePlatform();
 const store = createAppStore(treePlatform);
-const APP_VERSION = "0.0.0";
+const DEFAULT_APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
 function Root() {
   const [key, setKey] = React.useState(0)
@@ -74,6 +74,7 @@ function Root() {
     }
   }, [])
 
+  const appVersion = ul.isAvailable ? ul.getAppVersion() : DEFAULT_APP_VERSION;
   let selectedNode = useSelector((state: AppState) => state.tree.selectedNodeId);
   let selectedNodeProps = useSelector((state: AppState) => 
     selectedNode ? state.tree.nodes[selectedNode].properties : null);
@@ -109,7 +110,7 @@ function Root() {
             </div>
           </div>
           <div className="status-bar">
-            <span className="status-item">FBX Explorer v{APP_VERSION}</span>
+            <span className="status-item">fbxex {appVersion}</span>
             <span className="status-item">Ready</span>
           </div>
         </div>

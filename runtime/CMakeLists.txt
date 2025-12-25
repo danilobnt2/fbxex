@@ -5,6 +5,78 @@ project(fbxex CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(FBXEX_VERSION "" CACHE STRING "Override app version string (default: git working tree hash)")
+
+if(FBXEX_VERSION STREQUAL "")
+  find_package(Git QUIET)
+
+  if(GIT_FOUND)
+    execute_process(
+      COMMAND ${GIT_EXECUTABLE} rev-parse --show-toplevel
+      WORKING_DIRECTORY "${CMAKE_CURRENT_LIST_DIR}"
+      OUTPUT_VARIABLE _fbxex_git_root
+      OUTPUT_STRIP_TRAILING_WHITESPACE
+      RESULT_VARIABLE _fbxex_git_root_result
+    )
+
+    if(_fbxex_git_root_result EQUAL 0 AND NOT "${_fbxex_git_root}" STREQUAL "")
+      execute_process(
+        COMMAND ${GIT_EXECUTABLE} write-tree
+        WORKING_DIRECTORY "${_fbxex_git_root}"
+        OUTPUT_VARIABLE _fbxex_saved_index
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        RESULT_VARIABLE _fbxex_save_index_result
+      )
+
+      if(_fbxex_save_index_result EQUAL 0)
+        execute_process(
+          COMMAND ${GIT_EXECUTABLE} add runtime
+          WORKING_DIRECTORY "${_fbxex_git_root}"
+          OUTPUT_QUIET
+          ERROR_QUIET
+          RESULT_VARIABLE _fbxex_git_add_result
+        )
+
+        execute_process(
+          COMMAND ${GIT_EXECUTABLE} write-tree
+          WORKING_DIRECTORY "${_fbxex_git_root}"
+          OUTPUT_VARIABLE _fbxex_worktree_tree
+          OUTPUT_STRIP_TRAILING_WHITESPACE
+          RESULT_VARIABLE _fbxex_worktree_result
+        )
+
+        # Restore the original index regardless of the staging outcome
+        execute_process(
+          COMMAND ${GIT_EXECUTABLE} read-tree ${_fbxex_saved_index}
+          WORKING_DIRECTORY "${_fbxex_git_root}"
+          OUTPUT_QUIET
+          ERROR_QUIET
+        )
+
+        if(_fbxex_git_add_result EQUAL 0 AND _fbxex_worktree_result EQUAL 0)
+          execute_process(
+            COMMAND ${GIT_EXECUTABLE} rev-parse --short ${_fbxex_worktree_tree}
+            WORKING_DIRECTORY "${_fbxex_git_root}"
+            OUTPUT_VARIABLE _fbxex_git_short_hash
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            RESULT_VARIABLE _fbxex_git_short_result
+          )
+
+          if(_fbxex_git_short_result EQUAL 0 AND NOT "${_fbxex_git_short_hash}" STREQUAL "")
+            set(FBXEX_VERSION "${_fbxex_git_short_hash}")
+          endif()
+        endif()
+      endif()
+    endif()
+  endif()
+
+  if(FBXEX_VERSION STREQUAL "")
+    set(FBXEX_VERSION "unknown")
+  endif()
+endif()
+
+message(STATUS "fbxex version: ${FBXEX_VERSION}")
+
 set(FBXEX_DEV_PORT "5173" CACHE STRING "Port used for the run-dev helper target")
 
 include(FetchContent)
@@ -117,6 +189,8 @@ target_include_directories(fbxex PRIVATE
   "${ULTRALIGHT_SDK_PATH}/include"
   "${FBX_SDK_PATH}/include"
 )
+
+target_compile_definitions(fbxex PRIVATE FBXEX_VERSION="${FBXEX_VERSION}")
 
 # Link libraries
 if(WIN32)

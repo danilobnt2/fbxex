@@ -59,6 +59,13 @@ class Ultralight {
     }
     (window as any).__ul_OpenAboutDialog();
   }
+
+  getAppVersion(): string {
+    if (!this.isAvailable) {
+      throw new Error("Ultralight is not available.");
+    }
+    return (window as any).__ul_getAppVersion();
+  }
 }
 
 const ultralight = Ultralight.instance;

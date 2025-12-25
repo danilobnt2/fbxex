@@ -94,6 +94,14 @@ class FbxexAppMain final : public ultralight::AppListener,
             const JSValueRef /*arguments*/[],
             JSValueRef* /*exception*/);
 
+        static JSValueRef getAppVersion(
+            JSContextRef ctx,
+            JSObjectRef /*function*/,
+            JSObjectRef /*thisObject*/,
+            size_t /*argumentCount*/,
+            const JSValueRef /*arguments*/[],
+            JSValueRef* /*exception*/);
+
         static JSValueRef getFBXNode(
             JSContextRef ctx,
             JSObjectRef /*function*/,

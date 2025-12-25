@@ -30,6 +30,14 @@
 
 #include "fbxexappmain.hpp"
 
+#ifndef FBXEX_VERSION
+#define FBXEX_VERSION "unknown"
+#endif
+
+namespace {
+constexpr const char* kAppVersion = FBXEX_VERSION;
+}
+
 
 FbxexAppMain::FbxexAppMain(const std::string& start_url) 
     : start_url_(start_url)
@@ -101,6 +109,7 @@ void FbxexAppMain::OnDOMReady(
         {"__ul_SelectFbxFile", selectFbxFile},
         {"__ul_CloseWindow", CloseWindow},
         {"__ul_OpenAboutDialog", OpenAboutDialog},
+        {"__ul_getAppVersion", getAppVersion},
         {"__ul_getFBXNode", getFBXNode},
         {"__ul_getFBXNodeChildren", getFBXNodeChildren}
     });
@@ -129,7 +138,8 @@ JSValueRef FbxexAppMain::OpenAboutDialog(
     const JSValueRef /*arguments*/[],
     JSValueRef* /*exception*/) 
 {
-    ultralight::ShowMessageBox("About", "FBX Explorer\nVersion 1.0.0");
+    const std::string message = std::string("fbxex\nVersion ") + kAppVersion;
+    ultralight::ShowMessageBox("About", message.c_str());
     return JSValueMakeUndefined(ctx);
 }
 
@@ -161,6 +171,20 @@ JSValueRef FbxexAppMain::selectFbxFile(
       return JSValueMakeBoolean(ctx, false);
     }
     return JSValueMakeBoolean(ctx, true);
+}
+
+JSValueRef FbxexAppMain::getAppVersion(
+    JSContextRef ctx,
+    JSObjectRef /*function*/,
+    JSObjectRef /*thisObject*/,
+    size_t /*argumentCount*/,
+    const JSValueRef /*arguments*/[],
+    JSValueRef* /*exception*/)
+{
+    JSStringRef version = JSStringCreateWithUTF8CString(kAppVersion);
+    JSValueRef result = JSValueMakeString(ctx, version);
+    JSStringRelease(version);
+    return result;
 }
 
 JSValueRef FbxexAppMain::getFBXNode(
