@@ -84,10 +84,16 @@ set(FBXEX_DEV_PORT "5173" CACHE STRING "Port used for the run-dev helper target"
 include(FetchContent)
 
 option(FBXEX_ENABLE_COVERAGE "Enable code coverage flags for test targets (non-MSVC toolchains)" OFF)
+# Restrict coverage instrumentation to project sources (runtime/src); tests and external deps are excluded.
 
 function(fbxex_enable_coverage target)
   if(FBXEX_ENABLE_COVERAGE)
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+      set(_cov_flags
+        -O0 -g -fprofile-instr-generate -fcoverage-mapping)
+      target_compile_options(${target} PRIVATE ${_cov_flags})
+      target_link_options(${target} PRIVATE -fprofile-instr-generate)
+    elseif(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
       target_compile_options(${target} PRIVATE -O0 -g --coverage)
       target_link_options(${target} PRIVATE --coverage)
     elseif(MSVC)
@@ -115,12 +121,18 @@ FetchContent_MakeAvailable(Catch2)
 
 # Ultralight SDK path - modify this or set via -DULTRALIGHT_SDK_PATH
 if(NOT DEFINED ULTRALIGHT_SDK_PATH)
+  if(DEFINED ENV{ULTRALIGHT_SDK_PATH})
+    set(ULTRALIGHT_SDK_PATH "$ENV{ULTRALIGHT_SDK_PATH}")
+  endif()
+
   # Try common locations
-  if(EXISTS "$ENV{PROGRAMFILES}/Ultralight/SDK")
+  if(NOT DEFINED ULTRALIGHT_SDK_PATH AND EXISTS "$ENV{PROGRAMFILES}/Ultralight/SDK")
     set(ULTRALIGHT_SDK_PATH "$ENV{PROGRAMFILES}/Ultralight/SDK")
-  elseif(EXISTS "$ENV{HOME}/Ultralight/SDK")
+  elseif(NOT DEFINED ULTRALIGHT_SDK_PATH AND EXISTS "$ENV{HOME}/Ultralight/SDK")
     set(ULTRALIGHT_SDK_PATH "$ENV{HOME}/Ultralight/SDK")
-  else()
+  endif()
+
+  if(NOT DEFINED ULTRALIGHT_SDK_PATH)
     message(FATAL_ERROR 
       "Ultralight SDK not found. Please set ULTRALIGHT_SDK_PATH:\n"
       "  cmake -B build -DULTRALIGHT_SDK_PATH=/path/to/ultralight-sdk\n"
@@ -141,19 +153,25 @@ message(STATUS "Ultralight SDK: ${ULTRALIGHT_SDK_PATH}")
 
 # Autodesk FBX SDK path - modify this or set via -DFBX_SDK_PATH
 if(NOT DEFINED FBX_SDK_PATH)
-  set(_fbx_candidate_roots
-    "$ENV{HOME}/Autodesk/FBX/FBX SDK"
-    "$ENV{PROGRAMFILES}/Autodesk/FBX/FBX SDK"
-  )
-  foreach(_root IN LISTS _fbx_candidate_roots)
-    if(NOT _root)
-      continue()
-    endif()
-    if(EXISTS "${_root}/include/fbxsdk.h")
-      set(FBX_SDK_PATH "${_root}")
-      break()
-    endif()
-  endforeach()
+  if(DEFINED ENV{FBX_SDK_PATH})
+    set(FBX_SDK_PATH "$ENV{FBX_SDK_PATH}")
+  endif()
+
+  if(NOT DEFINED FBX_SDK_PATH)
+    set(_fbx_candidate_roots
+      "$ENV{HOME}/Autodesk/FBX/FBX SDK"
+      "$ENV{PROGRAMFILES}/Autodesk/FBX/FBX SDK"
+    )
+    foreach(_root IN LISTS _fbx_candidate_roots)
+      if(NOT _root)
+        continue()
+      endif()
+      if(EXISTS "${_root}/include/fbxsdk.h")
+        set(FBX_SDK_PATH "${_root}")
+        break()
+      endif()
+    endforeach()
+  endif()
 endif()
 
 if(NOT DEFINED FBX_SDK_PATH OR NOT EXISTS "${FBX_SDK_PATH}/include/fbxsdk.h")

@@ -8,7 +8,7 @@ A lightweight Windows desktop application for exploring and inspecting FBX files
 
 - [Git](https://gitforwindows.org/)
 - [CMake](https://cmake.org/download/) (Add to PATH during install)
-- [Visual Studio 2022](https://visualstudio.microsoft.com/vs/community/) with "Desktop development with C++" workload
+- [Visual Studio 2022](https://visualstudio.microsoft.com/vs/community/) with "Desktop development with C++" workload and the "C++ Clang tools for Windows" component (clang-cl/llvm-cov/llvm-profdata)
 - [Ninja](https://ninja-build.org/) — lightweight build system
 - [Node.js](https://nodejs.org/) with npm
 
@@ -47,18 +47,18 @@ A lightweight Windows desktop application for exploring and inspecting FBX files
 
 3. **Build the runtime with CMake**
 
-   Make sure the Visual Studio Developer PowerShell (x64) is active so the MSVC toolchain and tools (for example `cl`, `link`, and `ninja`) are available.
+   Make sure the Visual Studio Developer PowerShell (x64) is active so the VS toolchain and tools (for example `clang-cl`, `llvm-cov`, `llvm-profdata`, `link`, and `ninja`) are available.
 
    ```powershell
    Import-Module 'C:\\Program Files\\Microsoft Visual Studio\\...\\Common7\\Tools\\Microsoft.VisualStudio.DevShell.dll' 
    Enter-VsDevShell -VsInstallPath: 'C:\\Program Files\\Microsoft Visual Studio\\...' -DevCmdArguments '-arch=x64'
    ```
 
-   After that you can build the runtime by using CMake and Ninja from inside the `runtime` folder.
+   After that you can build the runtime by using CMake and Ninja from inside the `runtime` folder. CMakeLists defaults Ninja builds to clang-cl, and selects the ClangCL toolset for the VS generator.
 
    ```powershell
-   cmake -B build -G Ninja
-   cmake --build build --config Release
+   cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_BUILD_TYPE=Release
+   cmake --build build
    ```
 
    To build and launch the runtime in dev mode (points at the UI dev server on localhost:5173 by default) in one step, use the `run-dev` target:
@@ -80,9 +80,20 @@ A lightweight Windows desktop application for exploring and inspecting FBX files
 From inside `runtime` (after configuring the SDK paths as in the build section):
 
 ```powershell
-cmake -B build -G Ninja
-cmake --build build --config Release --target fbxex_tests
+cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_BUILD_TYPE=Debug -DFBXEX_ENABLE_COVERAGE=ON
+cmake --build build --target fbxex_tests
 ctest --test-dir build --output-on-failure
+```
+
+Coverage (clang-cl + llvm-cov) after running tests:
+
+```powershell
+ctest --test-dir build --output-on-failure
+llvm-profdata merge -sparse "$PWD/build/tests/fbxex_tests_*.profraw" -o "$PWD/build/coverage.profdata"
+llvm-cov report "$PWD/build/tests/fbxex_tests.exe" `
+  -instr-profile="$PWD/build/coverage.profdata" `
+  -path-equivalence="$PWD","$PWD" `
+  src
 ```
 
 ### UI tests (React)

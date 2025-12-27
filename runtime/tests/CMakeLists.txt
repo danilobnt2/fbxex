@@ -64,4 +64,13 @@ add_custom_command(TARGET fbxex_tests POST_BUILD
 fbxex_enable_coverage(fbxex_tests)
 
 include(Catch)
-catch_discover_tests(fbxex_tests)
+# Each Catch2 test case runs as its own CTest process; use %m in the profile
+# path so every case writes a unique .profraw instead of overwriting the same file.
+if(FBXEX_ENABLE_COVERAGE)
+  catch_discover_tests(fbxex_tests
+    PROPERTIES
+      ENVIRONMENT "LLVM_PROFILE_FILE=$<SHELL_PATH:${CMAKE_CURRENT_BINARY_DIR}/fbxex_tests_%m.profraw>"
+  )
+else()
+  catch_discover_tests(fbxex_tests)
+endif()
