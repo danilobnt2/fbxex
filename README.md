@@ -72,3 +72,30 @@ A lightweight Windows desktop application for exploring and inspecting FBX files
 4. **Run the application**
    
    `.runtime/build/Release/fbxex.exe`
+
+## Contributing - Running unit tests
+
+### Runtime tests (C++/Catch2)
+
+From inside `runtime` (after configuring the SDK paths as in the build section):
+
+```powershell
+cmake -B build -G Ninja
+cmake --build build --config Release --target fbxex_tests
+ctest --test-dir build --output-on-failure
+```
+
+### UI tests (React)
+
+From inside `ui`:
+
+```powershell
+npm install
+npm run test
+```
+
+Coverage report can be obtained via
+
+```
+npm run test -- --coverage --watch=false
+``` 
