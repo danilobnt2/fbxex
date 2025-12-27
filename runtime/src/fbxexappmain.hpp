@@ -21,13 +21,13 @@ inline static constexpr uint32_t WINDOW_WIDTH = 1024u;
 inline static constexpr uint32_t WINDOW_HEIGHT = 768u;
 
 
-class FbxexAppMain final : public ultralight::AppListener,
+class FbxexAppMain : public ultralight::AppListener,
                     public ultralight::WindowListener,
                     public ultralight::LoadListener,
                     public ultralight::ViewListener {
     public:
         explicit FbxexAppMain(const std::string& start_url);
-        ~FbxexAppMain() override = default;
+        ~FbxexAppMain() override;
 
         inline void Run() { app_->Run(); }
   
@@ -125,7 +125,12 @@ class FbxexAppMain final : public ultralight::AppListener,
         ultralight::RefPtr<ultralight::App> app_;
         ultralight::RefPtr<ultralight::Window> window_;
         ultralight::RefPtr<ultralight::Overlay> overlay_;
-        std::unique_ptr<FBXClientEager> fbx_client_eager_;
+    
+    protected:
+        struct NoUiInitTag {};
+        explicit FbxexAppMain(NoUiInitTag, std::unique_ptr<IFBXClient> client);
+
+        std::unique_ptr<IFBXClient> fbx_client_;
         std::string start_url_;
 
 };

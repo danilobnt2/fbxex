@@ -1,39 +1,79 @@
 #include "fbxclienteager.hpp"
 #include "fbxdtserialize.hpp"
 
+#include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
-FBXClientEager::FBXClientEager(const std::string& path) {
-    manager_ = FbxManager::Create();
-    if (!manager_) {
+namespace {
+
+using ManagerPtr = std::shared_ptr<FbxManager>;
+using ScenePtr = std::shared_ptr<FbxScene>;
+
+ManagerPtr CreateManager() {
+    auto manager = ManagerPtr(
+        FbxManager::Create(), 
+        [](FbxManager* m) { if (m) m->Destroy(); });
+    if (!manager) {
         throw std::runtime_error("Failed to create FBX manager");
     }
+    FbxIOSettings* ios = FbxIOSettings::Create(manager.get(), IOSROOT);
+    manager->SetIOSettings(ios);
+    return manager;
+}
 
-    FbxIOSettings* ios = FbxIOSettings::Create(manager_, IOSROOT);
-    manager_->SetIOSettings(ios);
+std::pair<ManagerPtr, ScenePtr> LoadSceneFromPath(const std::string& path) {
+    auto manager = CreateManager();
 
-    importer_ = FbxImporter::Create(manager_, "");
-    if (!importer_) {
+    auto importer_deleter = [](FbxImporter* imp) { if (imp) imp->Destroy(); };
+    std::unique_ptr<FbxImporter, decltype(importer_deleter)> importer(
+        FbxImporter::Create(manager.get(), ""), importer_deleter);
+    if (!importer) {
         throw std::runtime_error("Failed to create FBX importer");
     }
 
-    if (!importer_->Initialize(path.c_str(), -1, manager_->GetIOSettings())) {
+    if (!importer->Initialize(path.c_str(), -1, manager->GetIOSettings())) {
         throw std::runtime_error(
             std::string("FBX importer initialization failed: ") +
-            importer_->GetStatus().GetErrorString());
+            importer->GetStatus().GetErrorString());
     }
 
-    scene_ = FbxScene::Create(manager_, "scene");
-    if (!scene_) {
+    ScenePtr scene(
+        FbxScene::Create(manager.get(), "scene"), 
+        [](FbxScene* s) { if (s) s->Destroy(); });
+    if (!scene) {
         throw std::runtime_error("Failed to create FBX scene");
     }
 
-    if (!importer_->Import(scene_)) {
+    if (!importer->Import(scene.get())) {
         throw std::runtime_error(
             std::string("FBX import failed: ") +
-            importer_->GetStatus().GetErrorString());
+            importer->GetStatus().GetErrorString());
+    }
+
+    return {std::move(manager), std::move(scene)};
+}
+
+} // namespace
+
+FBXClientEager::FBXClientEager(const std::string& path)
+    : FBXClientEager(LoadSceneFromPath(path)) {}
+
+FBXClientEager::FBXClientEager(
+    std::pair<std::shared_ptr<FbxManager>, std::shared_ptr<FbxScene>> resources)
+    : FBXClientEager(
+          std::move(resources.first),
+          std::move(resources.second)) {}
+
+FBXClientEager::FBXClientEager(
+    std::shared_ptr<FbxManager> manager,
+    std::shared_ptr<FbxScene> scene)
+    : manager_(std::move(manager)),
+      scene_(std::move(scene)) {
+    if (!manager_ || !scene_) {
+        throw std::invalid_argument("Manager and scene must not be null");
     }
 
     nodes_.clear();
@@ -47,21 +87,6 @@ FBXClientEager::FBXClientEager(const std::string& path) {
         for (int i = 0; i < root->GetChildCount(); ++i) {
             buildNodeMap(root->GetChild(i), 0);
         }
-    }
-}
-
-FBXClientEager::~FBXClientEager() {
-    if (importer_) {
-        importer_->Destroy();
-        importer_ = nullptr;
-    }
-    if (scene_) {
-        scene_->Destroy();
-        scene_ = nullptr;
-    }
-    if (manager_) {
-        manager_->Destroy();
-        manager_ = nullptr;
     }
 }
 

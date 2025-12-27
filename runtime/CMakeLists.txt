@@ -5,6 +5,8 @@ project(fbxex CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+include(CTest)
+
 set(FBXEX_VERSION "" CACHE STRING "Override app version string (default: git working tree hash)")
 
 if(FBXEX_VERSION STREQUAL "")
@@ -81,6 +83,20 @@ set(FBXEX_DEV_PORT "5173" CACHE STRING "Port used for the run-dev helper target"
 
 include(FetchContent)
 
+option(FBXEX_ENABLE_COVERAGE "Enable code coverage flags for test targets (non-MSVC toolchains)" OFF)
+
+function(fbxex_enable_coverage target)
+  if(FBXEX_ENABLE_COVERAGE)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+      target_compile_options(${target} PRIVATE -O0 -g --coverage)
+      target_link_options(${target} PRIVATE --coverage)
+    elseif(MSVC)
+      # Coverage flags not configured for MSVC; skip quietly.
+      message(STATUS "Coverage skipped for target ${target} (MSVC toolchain).")
+    endif()
+  endif()
+endfunction()
+
 FetchContent_Declare(
   nlohmann_json
   GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -88,6 +104,14 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(nlohmann_json)
+
+FetchContent_Declare(
+  Catch2
+  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
+  GIT_TAG v3.5.2
+)
+
+FetchContent_MakeAvailable(Catch2)
 
 # Ultralight SDK path - modify this or set via -DULTRALIGHT_SDK_PATH
 if(NOT DEFINED ULTRALIGHT_SDK_PATH)
@@ -190,7 +214,10 @@ target_include_directories(fbxex PRIVATE
   "${FBX_SDK_PATH}/include"
 )
 
-target_compile_definitions(fbxex PRIVATE FBXEX_VERSION="${FBXEX_VERSION}")
+target_compile_definitions(fbxex PRIVATE
+  FBXEX_VERSION="${FBXEX_VERSION}"
+  FBXSDK_SHARED
+)
 
 # Link libraries
 if(WIN32)
@@ -238,6 +265,11 @@ add_custom_command(TARGET fbxex POST_BUILD
   "${CMAKE_CURRENT_SOURCE_DIR}/assets"
   "$<TARGET_FILE_DIR:fbxex>/assets"
   COMMENT "Copying assets...")
+
+if(BUILD_TESTING)
+  enable_testing()
+  add_subdirectory(tests)
+endif()
 
 add_custom_target(run-dev
   DEPENDS fbxex

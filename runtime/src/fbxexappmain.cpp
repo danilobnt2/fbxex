@@ -1,6 +1,7 @@
 #include <string>
 #include <memory>
 #include <cstdlib>
+#include <utility>
 
 #include <AppCore/AppCore.h>
 #include <JavaScriptCore/JavaScript.h>
@@ -38,10 +39,8 @@ namespace {
 constexpr const char* kAppVersion = FBXEX_VERSION;
 }
 
-
 FbxexAppMain::FbxexAppMain(const std::string& start_url) 
     : start_url_(start_url)
-    , fbx_client_eager_(nullptr)
 {
     instance_ = this;
     ultralight::Settings settings;
@@ -94,6 +93,16 @@ FbxexAppMain::FbxexAppMain(const std::string& start_url)
     window_->set_listener(this);
     overlay_->view()->set_load_listener(this);
     overlay_->view()->set_view_listener(this);
+}
+
+FbxexAppMain::FbxexAppMain(NoUiInitTag, std::unique_ptr<IFBXClient> client)
+    : fbx_client_(std::move(client))
+{
+    instance_ = this;
+}
+
+FbxexAppMain::~FbxexAppMain() {
+    instance_ = nullptr;
 }
 
 void FbxexAppMain::OnDOMReady(
@@ -165,7 +174,7 @@ JSValueRef FbxexAppMain::selectFbxFile(
       return JSValueMakeBoolean(ctx, false);
     }
     try {
-      instance_->fbx_client_eager_ = std::make_unique<FBXClientEager>(path);
+      instance_->fbx_client_ = std::make_unique<FBXClientEager>(path);
     } catch (const std::exception& ex) {
       ultralight::ShowMessageBox("Error", ex.what());
       return JSValueMakeBoolean(ctx, false);
@@ -195,7 +204,7 @@ JSValueRef FbxexAppMain::getFBXNode(
       const JSValueRef arguments[],
       JSValueRef* /*exception*/) 
 {
-    if (!instance_ || !instance_->fbx_client_eager_) {
+    if (!instance_ || !instance_->fbx_client_) {
       return JSValueMakeNull(ctx);
     }
     try {
@@ -206,7 +215,7 @@ JSValueRef FbxexAppMain::getFBXNode(
       return JSValueMakeNull(ctx);
     }
     size_t requested_node_id = JSValueToNumber(ctx, arguments[0], nullptr);
-    FBXNode requested_node(requested_node_id, *(instance_->fbx_client_eager_));
+    FBXNode requested_node(requested_node_id, *(instance_->fbx_client_));
     return BindFBXNode(ctx, requested_node);
 }
 
@@ -218,7 +227,7 @@ JSValueRef FbxexAppMain::getFBXNodeChildren(
     const JSValueRef arguments[],
     JSValueRef* /*exception*/) 
 {
-    if (!instance_ || !instance_->fbx_client_eager_) {
+    if (!instance_ || !instance_->fbx_client_) {
       return JSValueMakeNull(ctx);
     }
     try {
@@ -229,7 +238,7 @@ JSValueRef FbxexAppMain::getFBXNodeChildren(
       return JSValueMakeNull(ctx);
     }
     size_t requested_node_id = JSValueToNumber(ctx, arguments[0], nullptr);
-    FBXNode requested_node(requested_node_id, *(instance_->fbx_client_eager_));
+    FBXNode requested_node(requested_node_id, *(instance_->fbx_client_));
     const auto children_ids = requested_node.getChildren();
     JSValueRef js_array = JSObjectMakeArray(ctx, 0, nullptr, nullptr);
     unsigned int idx = 0;

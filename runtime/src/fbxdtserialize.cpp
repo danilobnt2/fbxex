@@ -33,7 +33,9 @@ nlohmann::json ToJson(const FbxDouble4x4& m) {
 
 nlohmann::json SerializeFbxProperty(const FbxProperty& property) {
     nlohmann::json result;
-    result["name"] = std::string(property.GetNameAsCStr());
+    
+    auto name = property.GetNameAsCStr();
+    result["name"] = name ? std::string(name) : std::string();
 
     const FbxDataType data_type = property.GetPropertyDataType();
 
