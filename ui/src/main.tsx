@@ -2,23 +2,15 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 
 import { HeroUIProvider } from "@heroui/system";
-import { Spacer } from "@heroui/spacer";
 import { Provider, useSelector } from "react-redux";
 
 import "./main.css";
 
 import ul from "./ul";
 import { HierarchyTreeView, MenuBar } from "./containers";
-import { IPlatformUtils } from "./containers/menubar/menubar";
-import { IHierarchyTreeService } from "./containers/htview/hierarchytreeview";
-import { AppState, createAppStore, fileSelected } from "./store";
-import { 
-  ITreePlatform, 
-  TreeNodeId, 
-  collapseNode, 
-  requestExpandNode, 
-  selectNode } from "./viewmodels/treeview";
+import { AppState, createAppStore } from "./store";
 import { Textarea } from "@heroui/input";
+import { ReduxHierarchyTreeService, UltralightPlatformUtils, UltralightTreePlatform } from "./bindings";
 
 
 declare global {
@@ -32,35 +24,11 @@ declare global {
 window.__ultralight = ul;
 
 
-class UltralightPlatformUtils implements IPlatformUtils {
-  isPlatformAvailable = () => ul.isAvailable;
-  selectFbxFile = () => ul.selectFbxFile();
-  closeWindow = () => ul.closeWindow();
-  openAboutDialog = () => ul.openAboutDialog();
-  createFileSelectedAction = () => fileSelected();
-  onPlatformNotAvailable = () => alert("Ultralight not available.");
-}
-
-class UltralightTreePlatform implements ITreePlatform {
-  isPlatformAvailable = () => ul.isAvailable;
-  getFBXNodeChildren = (id: TreeNodeId) => ul.getFBXNodeChildren(id);
-  getFBXNodeProperties = (id: TreeNodeId) => ul.getFBXNode(id).props;
-  getFBXPreviewProperties = (id: TreeNodeId) => ({ 
-    name: ul.getFBXNode(id).props.name });
-}
-
-class ReduxHierarchyTreeService implements IHierarchyTreeService {
-  getNode = (state: AppState, id: TreeNodeId) => state.tree.nodes[id];
-  createCollapseNodeAction = (id: TreeNodeId) => collapseNode(id);
-  createRequestExpandNodeAction = (id: TreeNodeId) => requestExpandNode(id);
-  createSelectNodeAction = (id: TreeNodeId) => selectNode(id);
-}
-
 const treePlatform = new UltralightTreePlatform();
 const store = createAppStore(treePlatform);
 const DEFAULT_APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "dev";
 
-function Root() {
+export function Root() {
   const [key, setKey] = React.useState(0)
   
 
@@ -119,8 +87,11 @@ function Root() {
   )
 }
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <Provider store={store}>
-    <Root />
-  </Provider>
-)
+const rootElement = document.getElementById("root");
+if (rootElement) {
+  ReactDOM.createRoot(rootElement).render(
+    <Provider store={store}>
+      <Root />
+    </Provider>
+  );
+}
