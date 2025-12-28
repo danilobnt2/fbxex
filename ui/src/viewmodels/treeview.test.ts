@@ -1,5 +1,6 @@
 import { configureStore } from "@reduxjs/toolkit";
 import { describe, it, expect, vi, beforeEach, type Mocked } from "vitest";
+import { FBXNodeProps } from "../models/fbxnode";
 
 import {
   TreeViewState,
@@ -19,7 +20,11 @@ import {
 const createMockPlatform = (overrides: Partial<Mocked<ITreePlatform>> = {}): Mocked<ITreePlatform> => ({
   isPlatformAvailable: vi.fn(() => true),
   getFBXNodeChildren: vi.fn<(id: number) => number[]>((id) => []),
-  getFBXNodeProperties: vi.fn<(id: number) => Record<string, any>>((id) => ({})),
+  getFBXNodeProperties: vi.fn<(id: number) => FBXNodeProps>((id) => ({
+    name: `Node ${id}`,
+    properties: [],
+    attributes: [],
+  })),
   getFBXPreviewProperties: vi.fn<(id: number) => { name?: string }>((id) => ({})),
   ...overrides,
 });
@@ -149,9 +154,10 @@ describe("treeViewReducer", () => {
 
   it("stores properties and clears previous errors", () => {
     const errored = treeViewReducer(undefined, treePropertiesFailed(0, "bad"));
-    const loaded = treeViewReducer(errored, { type: "TREE/PROPERTIES_LOADED", payload: { id: 0, properties: { foo: 1 } } });
+    const loadedProps: FBXNodeProps = { name: "Node 0", properties: [], attributes: [] };
+    const loaded = treeViewReducer(errored, { type: "TREE/PROPERTIES_LOADED", payload: { id: 0, properties: loadedProps } });
 
-    expect(loaded.nodes[0].properties).toEqual({ foo: 1 });
+    expect(loaded.nodes[0].properties).toEqual(loadedProps);
     expect(loaded.nodes[0].error).toBeUndefined();
   });
 
@@ -238,9 +244,13 @@ describe("createTreeViewMiddleware", () => {
   });
 
   it("loads properties after selecting a node", () => {
-    const properties = { foo: "bar" };
+    const properties: FBXNodeProps = {
+      name: "Node 0",
+      properties: [{ name: "foo", type: "string", value: "bar" }],
+      attributes: [],
+    };
     const { store, platform } = createTreeStore({
-      getFBXNodeProperties: vi.fn<(id: number) => Record<string, any>>((id) => properties),
+      getFBXNodeProperties: vi.fn<(id: number) => FBXNodeProps>((id) => properties),
     });
 
     store.dispatch(selectNode(0));

@@ -54,6 +54,30 @@ TEST_CASE("FBXClientEager can build from an in-memory scene") {
     REQUIRE(child_a_props);
     REQUIRE(child_a_props->name == child_a->GetName());
 
+    SECTION("captures node attributes with properties") {
+        FbxNodeAttribute* mesh_attr = FbxMesh::Create(scene.get(), "MeshAttr");
+        child_a->AddNodeAttribute(mesh_attr);
+        FbxProperty mesh_prop = FbxProperty::Create(mesh_attr, FbxStringDT, "AttrProp");
+        mesh_prop.Set<FbxString>("mesh-prop-value");
+
+        FBXClientEager client_with_attr(manager, scene);
+        const FBXNodeProps* props_with_attr = client_with_attr.getNodeProps(child_a_id);
+        REQUIRE(props_with_attr);
+        REQUIRE(props_with_attr->attributes.size() == 1);
+        const auto& attr = props_with_attr->attributes.front();
+        REQUIRE(attr.value("name", "") == "MeshAttr");
+        REQUIRE_FALSE(attr.value("type", "").empty());
+        const auto attr_prop_it = std::find_if(
+            attr["properties"].begin(),
+            attr["properties"].end(),
+            [](const nlohmann::json& prop) {
+                return prop.value("name", "") == "AttrProp"
+                    && prop.value("type", "") == "eFbxString"
+                    && prop.value("value", "") == "mesh-prop-value";
+            });
+        REQUIRE(attr_prop_it != attr["properties"].end());
+    }
+
     const auto prop_match = std::find_if(
         child_a_props->properties.begin(),
         child_a_props->properties.end(),

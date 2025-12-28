@@ -27,6 +27,7 @@ class FBXClientEager : public IFBXClient {
 
         void buildNodeMap(FbxNode* fbx_node, size_t parent_id);
         void populateNodeData(FbxNode* fbx_node, NodeData& node_data);
+        nlohmann::json serializeNodeAttribute(FbxNodeAttribute* attribute) const;
 
         std::vector<NodeData> nodes_;
         std::shared_ptr<FbxManager> manager_;

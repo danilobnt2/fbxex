@@ -86,6 +86,11 @@ TEST_CASE("BindFBXNodeProps converts FBXNodeProps to JS object") {
     props.name = "ExampleNode";
     props.properties.push_back(nlohmann::json::object({{"key", "value"}}));
     props.properties.push_back(nlohmann::json::array({1, 2, 3}));
+    props.attributes.push_back(nlohmann::json::object({
+        {"name", "MeshAttr"},
+        {"type", "Mesh"},
+        {"properties", nlohmann::json::array({ nlohmann::json::object({{"name", "AttrProp"}, {"type", "eFbxString"}, {"value", "abc"}}) })}
+    }));
 
     JSValueRef js_props = BindFBXNodeProps(ctx, props);
     REQUIRE(JSValueIsObject(ctx, js_props));
@@ -118,6 +123,20 @@ TEST_CASE("BindFBXNodeProps converts FBXNodeProps to JS object") {
     JSValueRef second_array_first = JSObjectGetPropertyAtIndex(ctx, second_array, 0, nullptr);
     REQUIRE(JSValueIsNumber(ctx, second_array_first));
     REQUIRE(JSValueToNumber(ctx, second_array_first, nullptr) == 1.0);
+
+    JSStringRef attrs_key = JSStringCreateWithUTF8CString("attributes");
+    JSValueRef attrs_value = JSObjectGetProperty(ctx, obj, attrs_key, nullptr);
+    JSStringRelease(attrs_key);
+    REQUIRE(JSValueIsObject(ctx, attrs_value));
+
+    JSObjectRef attrs_array = JSValueToObject(ctx, attrs_value, nullptr);
+    JSValueRef first_attr = JSObjectGetPropertyAtIndex(ctx, attrs_array, 0, nullptr);
+    REQUIRE(JSValueIsObject(ctx, first_attr));
+    JSObjectRef first_attr_obj = JSValueToObject(ctx, first_attr, nullptr);
+    JSStringRef attr_name_key = JSStringCreateWithUTF8CString("name");
+    JSValueRef attr_name_val = JSObjectGetProperty(ctx, first_attr_obj, attr_name_key, nullptr);
+    JSStringRelease(attr_name_key);
+    REQUIRE(JsValueToString(ctx, attr_name_val) == "MeshAttr");
 
     JSGlobalContextRelease(ctx);
 }

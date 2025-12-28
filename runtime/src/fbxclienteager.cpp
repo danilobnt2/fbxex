@@ -120,6 +120,20 @@ void FBXClientEager::populateNodeData(FbxNode* fbx_node, NodeData& node_data) {
         }
         property = fbx_node->GetNextProperty(property);
     }
+
+    node_data.props.attributes.clear();
+    const int attribute_count = fbx_node->GetNodeAttributeCount();
+    for (int idx = 0; idx < attribute_count; ++idx) {
+        FbxNodeAttribute* attribute = fbx_node->GetNodeAttributeByIndex(idx);
+        if (!attribute) {
+            continue;
+        }
+        try {
+            node_data.props.attributes.push_back(serializeNodeAttribute(attribute));
+        } catch (const std::exception&) {
+            // Unsupported attribute types are skipped.
+        }
+    }
 }
 
 void FBXClientEager::buildNodeMap(FbxNode* fbx_node, size_t parent_id) {
@@ -138,4 +152,25 @@ void FBXClientEager::buildNodeMap(FbxNode* fbx_node, size_t parent_id) {
     for (int i = 0; i < fbx_node->GetChildCount(); ++i) {
         buildNodeMap(fbx_node->GetChild(i), current_id);
     }
+}
+
+nlohmann::json FBXClientEager::serializeNodeAttribute(FbxNodeAttribute* attribute) const {
+    nlohmann::json result;
+    const char* attr_name = attribute->GetName();
+    const char* attr_type_name = attribute->GetTypeName();
+    result["name"] = attr_name ? std::string(attr_name) : std::string();
+    result["type"] = attr_type_name ? std::string(attr_type_name) : std::string();
+    result["properties"] = nlohmann::json::array();
+
+    FbxProperty property = attribute->GetFirstProperty();
+    while (property.IsValid()) {
+        try {
+            result["properties"].push_back(SerializeFbxProperty(property));
+        } catch (const std::exception&) {
+            // Unsupported property types are skipped.
+        }
+        property = attribute->GetNextProperty(property);
+    }
+
+    return result;
 }

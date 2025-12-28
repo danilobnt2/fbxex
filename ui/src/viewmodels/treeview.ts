@@ -1,4 +1,5 @@
 import { AnyAction, Middleware, UnknownAction } from "@reduxjs/toolkit";
+import { FBXNodeProps } from "../models/fbxnode";
 
 export type TreeNodeId = number;
 
@@ -10,7 +11,7 @@ export type TreeNode = {
   isExpanded: boolean;
   isLoading: boolean;
   isSelected: boolean;
-  properties?: Record<string, any>;
+  properties?: FBXNodeProps;
   error?: string;
 };
 
@@ -47,7 +48,7 @@ export type TreeViewAction =
   | { type: "TREE/CHILDREN_LOADED"; payload: { id: TreeNodeId; previewProperties?: { name?: string }; children: TreeChildNode[] } }
   | { type: "TREE/EXPAND_FAILED"; payload: { id: TreeNodeId; error: string } }
   | { type: "TREE/NODE_SELECTED"; payload: { id: TreeNodeId } }
-  | { type: "TREE/PROPERTIES_LOADED"; payload: { id: TreeNodeId; properties: Record<string, any> } }
+  | { type: "TREE/PROPERTIES_LOADED"; payload: { id: TreeNodeId; properties: FBXNodeProps } }
   | { type: "TREE/PROPERTIES_FAILED"; payload: { id: TreeNodeId; error: string } };
 
 export const resetTree = (rootId: TreeNodeId = 0): TreeViewAction => ({
@@ -89,7 +90,7 @@ export const selectTreeNode = (id: TreeNodeId): TreeViewAction => ({
   payload: { id },
 });
 
-export const treePropertiesLoaded = (id: TreeNodeId, properties: Record<string, any>): TreeViewAction => ({
+export const treePropertiesLoaded = (id: TreeNodeId, properties: FBXNodeProps): TreeViewAction => ({
   type: "TREE/PROPERTIES_LOADED",
   payload: { id, properties },
 });
@@ -225,7 +226,7 @@ export type TreeAwareState = { tree: TreeViewState };
 export interface ITreePlatform {
   isPlatformAvailable: () => boolean;
   getFBXNodeChildren: (id: TreeNodeId) => TreeNodeId[];
-  getFBXNodeProperties: (id: TreeNodeId) => Record<string, any>;
+  getFBXNodeProperties: (id: TreeNodeId) => FBXNodeProps;
   getFBXPreviewProperties: (id: TreeNodeId) => { name?: string };
 }
 

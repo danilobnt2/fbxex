@@ -13,6 +13,7 @@ class FBXNodeProps {
 
         std::string name;
         std::vector<nlohmann::json> properties;
+        std::vector<nlohmann::json> attributes;
 };
 
 class IFBXClient {

@@ -47,7 +47,7 @@ describe("ultralight bridge", () => {
   it("delegates to Ultralight window bridge when available", () => {
     const win = window as any;
     win.__ul_getFbxFileFormatVersion = vi.fn(() => "7.4.0");
-    win.__ul_getFBXNode = vi.fn((id: number) => ({ id, props: { name: `Node ${id}` } }));
+    win.__ul_getFBXNode = vi.fn((id: number) => ({ id, props: { name: `Node ${id}`, properties: [], attributes: [] } }));
     win.__ul_getFBXNodeChildren = vi.fn((id: number) => [id + 1, id + 2]);
     win.__ul_SelectFbxFile = vi.fn(() => true);
     win.__ul_CloseWindow = vi.fn();
@@ -60,7 +60,7 @@ describe("ultralight bridge", () => {
     expect(ul.getFbxFileFormatVersion()).toBe("7.4.0");
     expect(win.__ul_getFbxFileFormatVersion).toHaveBeenCalledTimes(1);
 
-    expect(ul.getFBXNode(10)).toEqual({ id: 10, props: { name: "Node 10" } });
+    expect(ul.getFBXNode(10)).toEqual({ id: 10, props: { name: "Node 10", properties: [], attributes: [] } });
     expect(win.__ul_getFBXNode).toHaveBeenCalledWith(10);
 
     expect(ul.getFBXNodeChildren(5)).toEqual([6, 7]);

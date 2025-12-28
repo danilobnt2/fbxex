@@ -5,6 +5,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 
 import { createAppStore } from "./store";
 import { ITreePlatform } from "./viewmodels/treeview";
+import { FBXNodeProps } from "./models/fbxnode";
 
 const mockUl = {
   isAvailable: false,
@@ -12,7 +13,7 @@ const mockUl = {
   closeWindow: vi.fn(),
   openAboutDialog: vi.fn(),
   getAppVersion: vi.fn(() => "mock-version"),
-  getFBXNode: vi.fn((id: number) => ({ props: { name: `Node ${id}` } })),
+  getFBXNode: vi.fn((id: number) => ({ props: { name: `Node ${id}`, properties: [], attributes: [] } })),
   getFBXNodeChildren: vi.fn(() => [] as number[]),
 };
 
@@ -34,7 +35,7 @@ vi.mock("./containers", () => ({
 class MockTreePlatform implements ITreePlatform {
   isPlatformAvailable = () => true;
   getFBXNodeChildren = () => [];
-  getFBXNodeProperties = () => ({});
+  getFBXNodeProperties = () => ({ name: "Mock node", properties: [], attributes: [] });
   getFBXPreviewProperties = () => ({ name: "Mock node" });
 }
 
@@ -102,7 +103,11 @@ describe("main entry", () => {
     const Root = await loadRoot();
     const store = createStore();
 
-    const badProps = { value: 10n };
+    const badProps: FBXNodeProps = {
+      name: "Bad node",
+      properties: [{ name: "BigInt", type: "custom", value: 10n as any }],
+      attributes: [],
+    };
     store.dispatch({ type: "TREE/NODE_SELECTED", payload: { id: 1 } });
     store.dispatch({ type: "TREE/PROPERTIES_LOADED", payload: { id: 1, properties: badProps } });
 

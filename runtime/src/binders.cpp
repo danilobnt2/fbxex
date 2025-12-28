@@ -81,6 +81,15 @@ JSValueRef BindFBXNodeProps(JSContextRef ctx, const FBXNodeProps& props) {
       kJSPropertyAttributeNone,
       nullptr);
   JSStringRelease(props_key);
+  JSStringRef attrs_key = JSStringCreateWithUTF8CString("attributes");
+  JSObjectSetProperty(
+      ctx,
+      js_pros,
+      attrs_key,
+      JsonToJSObject(ctx, props.attributes),
+      kJSPropertyAttributeNone,
+      nullptr);
+  JSStringRelease(attrs_key);
   return js_pros;
 }
 
