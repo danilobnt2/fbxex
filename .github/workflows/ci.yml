@@ -1,0 +1,139 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
+env:
+  NODE_VERSION: "22"
+  DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+  ULTRALIGHT_OCI: ghcr.io/${{ github.repository }}/ultralightsdk-1.4.0.7z@sha256:8ad467524e74eeb14b80813263ded3b9b6e6b85db8c3b6c8ab288318614f05dc
+  FBX_SDK_OCI: ghcr.io/${{ github.repository }}/fbxsdk-2020.3.7.zip@sha256:738ba8a18a683f60d2e1ac6e1694a41169f12a8ba0c4b63535c9a1d787b160d3
+  ULTRALIGHT_SDK_PATH: ${{ github.workspace }}\ultralight-sdk
+  FBX_SDK_PATH: ${{ github.workspace }}\fbx-sdk
+  CMAKE_BUILD_DIR: ${{ github.workspace }}\build\runtime
+  RUNTIME_COVERAGE_THRESHOLD: "80"
+
+jobs:
+  build-test:
+    runs-on: windows-2025
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install oras
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "1.3.0"
+          $url = "https://github.com/oras-project/oras/releases/download/v$version/oras_${version}_windows_amd64.zip"
+          $zipPath = Join-Path $env:RUNNER_TEMP "oras_${version}.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zipPath
+          $binDir = Join-Path $env:USERPROFILE "bin"
+          New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+          Expand-Archive -Path $zipPath -DestinationPath $binDir -Force
+          $orasExe = Join-Path $binDir "oras.exe"
+          if (-not (Test-Path $orasExe)) { throw "oras.exe not found after extraction" }
+          "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $orasExe version
+      - name: Install jq
+        shell: pwsh
+        run: |
+          choco install jq --no-progress --yes
+
+      - name: Pull SDK artifacts
+        env:
+          ORAS_PASSWORD: ${{ secrets.GHCR_TOKEN }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          oras login ghcr.io -u $env:GITHUB_ACTOR -p $env:ORAS_PASSWORD
+          oras pull $env:ULTRALIGHT_OCI -o ultralight-sdk.7z
+          oras pull $env:FBX_SDK_OCI -o fbx-sdk.zip
+          7z x ultralight-sdk.7z -oultralight-sdk | Out-Null
+          7z x fbx-sdk.zip -ofbx-sdk | Out-Null
+
+      - name: Configure runtime (CMake + coverage)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "C:\Program Files\LLVM\bin;$($env:PATH)"
+          cmake -S runtime -B $env:CMAKE_BUILD_DIR `
+            -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=Debug `
+            -DCMAKE_C_COMPILER=clang-cl `
+            -DCMAKE_CXX_COMPILER=clang-cl `
+            -DFBXEX_ENABLE_COVERAGE=ON `
+            -DULTRALIGHT_SDK_PATH="$env:ULTRALIGHT_SDK_PATH" `
+            -DFBX_SDK_PATH="$env:FBX_SDK_PATH"
+
+      - name: Build runtime
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\Program Files\LLVM\bin;$($env:PATH)"
+          cmake --build $env:CMAKE_BUILD_DIR
+
+      - name: Run runtime tests (ctest)
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\Program Files\LLVM\bin;$($env:PATH)"
+          ctest --test-dir $env:CMAKE_BUILD_DIR --output-on-failure
+
+      - name: Collect runtime coverage
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "C:\Program Files\LLVM\bin;$($env:PATH)"
+          $profraw = Get-ChildItem (Join-Path $env:CMAKE_BUILD_DIR "tests") -Recurse -Filter "fbxex_tests_*.profraw"
+          if (-not $profraw) { throw "No coverage (.profraw) files found under tests/" }
+          $profrawPaths = $profraw | ForEach-Object { $_.FullName }
+          $profdata = Join-Path $env:CMAKE_BUILD_DIR "coverage.profdata"
+          llvm-profdata merge -sparse $profrawPaths -o $profdata
+          $testExe = Join-Path $env:CMAKE_BUILD_DIR "tests/fbxex_tests.exe"
+          if (-not (Test-Path $testExe)) { throw "Test binary not found at $testExe" }
+          $covJsonPath = Join-Path $env:CMAKE_BUILD_DIR "runtime_coverage.json"
+          llvm-cov export "$testExe" `
+            -instr-profile "$profdata" `
+            -path-equivalence "$env:GITHUB_WORKSPACE","$env:GITHUB_WORKSPACE" `
+            -ignore-filename-regex "ultralight_adapters.cpp" `
+            -summary-only `
+            runtime/src > $covJsonPath
+          $threshold = [double]$env:RUNTIME_COVERAGE_THRESHOLD
+          $runtimePct = & jq -r ".data[0].totals.lines.percent" $covJsonPath
+          if (-not $runtimePct) { throw "Failed to read runtime coverage percent from $covJsonPath" }
+          $runtimePct = [double]$runtimePct
+          Write-Host "Runtime coverage (lines): $runtimePct% (from llvm-cov JSON report)"
+          if ($runtimePct -lt $threshold) {
+            throw "Coverage gate failed: runtime coverage $runtimePct% is below required $threshold%."
+          }
+
+      - name: Install UI deps
+        working-directory: ui
+        shell: pwsh
+        run: |
+          npm ci
+
+      - name: Run UI tests with coverage
+        working-directory: ui
+        shell: pwsh
+        env:
+          CI: "true"
+        run: |
+          npm run test -- --coverage --coverage.reporter=lcov --coverage.reporter=json

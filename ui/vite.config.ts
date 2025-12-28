@@ -20,5 +20,12 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setupTests.tsx",
+    coverage: {
+      provider: "v8",
+      thresholds: {
+        lines: 85,
+      },
+      reportsDirectory: "./coverage",
+    },
   },
 });
