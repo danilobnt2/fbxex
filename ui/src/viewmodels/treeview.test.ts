@@ -1,5 +1,5 @@
 import { configureStore } from "@reduxjs/toolkit";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, type Mocked } from "vitest";
 
 import {
   TreeViewState,
@@ -16,15 +16,15 @@ import {
   ITreePlatform,
 } from "./treeview";
 
-const createMockPlatform = (overrides: Partial<ITreePlatform> = {}): ITreePlatform => ({
+const createMockPlatform = (overrides: Partial<Mocked<ITreePlatform>> = {}): Mocked<ITreePlatform> => ({
   isPlatformAvailable: vi.fn(() => true),
-  getFBXNodeChildren: vi.fn(() => []),
-  getFBXNodeProperties: vi.fn(() => ({})),
-  getFBXPreviewProperties: vi.fn(() => ({})),
+  getFBXNodeChildren: vi.fn<(id: number) => number[]>((id) => []),
+  getFBXNodeProperties: vi.fn<(id: number) => Record<string, any>>((id) => ({})),
+  getFBXPreviewProperties: vi.fn<(id: number) => { name?: string }>((id) => ({})),
   ...overrides,
 });
 
-const createTreeStore = (platformOverrides: Partial<ITreePlatform> = {}) => {
+const createTreeStore = (platformOverrides: Partial<Mocked<ITreePlatform>> = {}) => {
   const platform = createMockPlatform(platformOverrides);
   const store = configureStore({
     reducer: { tree: treeViewReducer },
@@ -167,7 +167,7 @@ describe("createTreeViewMiddleware", () => {
 
   it("fetches children when expanding a node without cached data", () => {
     const { store, platform } = createTreeStore({
-      getFBXNodeChildren: vi.fn(() => [2, 3]),
+      getFBXNodeChildren: vi.fn<(id: number) => number[]>((id) => [2, 3]),
       getFBXPreviewProperties: vi.fn((id: number) => ({ name: `Node ${id}` })),
     });
 
@@ -184,7 +184,7 @@ describe("createTreeViewMiddleware", () => {
 
   it("skips fetch when children are already loaded", () => {
     const { store, platform } = createTreeStore({
-      getFBXNodeChildren: vi.fn(() => [5]),
+      getFBXNodeChildren: vi.fn<(id: number) => number[]>((id) => [5]),
     });
 
     store.dispatch(treeChildrenLoaded(0, [{ id: 5 }]));
@@ -199,7 +199,7 @@ describe("createTreeViewMiddleware", () => {
 
   it("skips fetch when node expansion is already in-flight", () => {
     const { store, platform } = createTreeStore({
-      getFBXNodeChildren: vi.fn(() => [1]),
+      getFBXNodeChildren: vi.fn<(id: number) => number[]>((id) => [1]),
     });
 
     store.dispatch(requestExpandNode(0)); // sets isLoading true
@@ -225,7 +225,7 @@ describe("createTreeViewMiddleware", () => {
 
   it("dispatches expand failure when platform throws", () => {
     const { store, platform } = createTreeStore({
-      getFBXNodeChildren: vi.fn(() => {
+      getFBXNodeChildren: vi.fn<(id: number) => number[]>((id) => {
         throw new Error("boom");
       }),
     });
@@ -240,7 +240,7 @@ describe("createTreeViewMiddleware", () => {
   it("loads properties after selecting a node", () => {
     const properties = { foo: "bar" };
     const { store, platform } = createTreeStore({
-      getFBXNodeProperties: vi.fn(() => properties),
+      getFBXNodeProperties: vi.fn<(id: number) => Record<string, any>>((id) => properties),
     });
 
     store.dispatch(selectNode(0));

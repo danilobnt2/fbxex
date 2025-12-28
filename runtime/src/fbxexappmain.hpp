@@ -86,8 +86,8 @@ class FbxexAppMain : public ultralight::AppListener,
         explicit FbxexAppMain(const std::string& start_url);
         explicit FbxexAppMain(
             const std::string& start_url,
-            std::unique_ptr<IUiFactory> ui_factory = nullptr, 
-            std::unique_ptr<IFBXClientFactory> client_factory = nullptr);
+            std::unique_ptr<IUiFactory> ui_factory, 
+            std::unique_ptr<IFBXClientFactory> client_factory);
         ~FbxexAppMain() override;
 
         inline void Run() { app_->Run(); }
