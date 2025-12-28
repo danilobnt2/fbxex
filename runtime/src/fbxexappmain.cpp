@@ -2,6 +2,7 @@
 #include <memory>
 #include <cstdlib>
 #include <utility>
+#include <stdexcept>
 
 #include <AppCore/AppCore.h>
 #include <JavaScriptCore/JavaScript.h>
@@ -9,8 +10,8 @@
 #include <fbxsdk.h>
 
 #include "binders.hpp"
-#include "fbxclienteager.hpp"
 #include "fbxnode.hpp"
+#include "ultralight_adapters.hpp"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -41,20 +42,46 @@ constexpr const char* kAppVersion = FBXEX_VERSION;
 
 FbxexAppMain::FbxexAppMain(const std::string& start_url) 
     : start_url_(start_url)
+    , ui_factory_(std::make_unique<DefaultUiFactory>())
+    , client_factory_(std::make_unique<DefaultFBXClientFactory>())
 {
     instance_ = this;
+    InitializeUi();
+}
+
+FbxexAppMain::FbxexAppMain(
+        const std::string& start_url,
+        std::unique_ptr<IUiFactory> ui_factory, 
+        std::unique_ptr<IFBXClientFactory> client_factory)
+    : start_url_(start_url)
+    , ui_factory_(std::move(ui_factory))
+    , client_factory_(std::move(client_factory))
+{
+    instance_ = this;
+    InitializeUi();
+}
+
+FbxexAppMain::~FbxexAppMain() {
+    instance_ = nullptr;
+}
+
+void FbxexAppMain::InitializeUi() {
+    if (!ui_factory_) {
+        ui_factory_ = std::make_unique<DefaultUiFactory>();
+    }
+    if (!client_factory_) {
+        client_factory_ = std::make_unique<DefaultFBXClientFactory>();
+    }
+
     ultralight::Settings settings;
     settings.app_name = "fbxex";
     ultralight::Config config;
     config.force_repaint = true; // needed for css scrollbars to work properly
-    app_ = ultralight::App::Create(settings, config);
-    window_ = ultralight::Window::Create(
-        app_->main_monitor(), 
-        WINDOW_WIDTH, 
-        WINDOW_HEIGHT, 
-        false
-        , ultralight::kWindowFlags_Titled 
-        | ultralight::kWindowFlags_Resizable);
+    app_ = ui_factory_->CreateApp(settings, config);
+    if (!app_) { throw std::runtime_error("Failed to create Ultralight App"); }
+    window_ = ui_factory_->BuildWindow(*app_, WINDOW_WIDTH, WINDOW_HEIGHT, false,
+        ultralight::kWindowFlags_Titled | ultralight::kWindowFlags_Resizable);
+    if (!window_) { throw std::runtime_error("Failed to create Ultralight Window"); }
 
 #ifdef _WIN32
     const auto hwnd = static_cast<HWND>(window_->native_handle());
@@ -86,23 +113,16 @@ FbxexAppMain::FbxexAppMain(const std::string& start_url)
     }
 #endif
 
-    overlay_ = ultralight::Overlay::Create(window_, 1, 1, 0, 0);
-    OnResize(window_.get(), window_->width(), window_->height());
-    overlay_->view()->LoadURL(start_url_.c_str());
+    overlay_ = ui_factory_->CreateOverlay(*window_);
+    if (!overlay_) { throw std::runtime_error("Failed to create Ultralight Overlay"); }
+    overlay_->Resize(window_->width(), window_->height());
+    if (auto* view = overlay_->view()) {
+        view->LoadURL(start_url_);
+        view->set_load_listener(this);
+        view->set_view_listener(this);
+    }
     app_->set_listener(this);
     window_->set_listener(this);
-    overlay_->view()->set_load_listener(this);
-    overlay_->view()->set_view_listener(this);
-}
-
-FbxexAppMain::FbxexAppMain(NoUiInitTag, std::unique_ptr<IFBXClient> client)
-    : fbx_client_(std::move(client))
-{
-    instance_ = this;
-}
-
-FbxexAppMain::~FbxexAppMain() {
-    instance_ = nullptr;
 }
 
 void FbxexAppMain::OnDOMReady(
@@ -111,7 +131,10 @@ void FbxexAppMain::OnDOMReady(
     bool is_main_frame, 
     const ultralight::String& url) 
 {
-    auto scoped_context = caller->LockJSContext(); 
+    IView* view_iface = overlay_ ? overlay_->view() : nullptr;
+    if (!view_iface) { return; }
+    auto scoped_context = view_iface->LockJSContext(); 
+    if (!scoped_context) { return; }
     JSContextRef ctx = (*scoped_context);
 
     BindGlobals(ctx, {
@@ -123,8 +146,8 @@ void FbxexAppMain::OnDOMReady(
         {"__ul_getFBXNodeChildren", getFBXNodeChildren}
     });
     
-    caller->EvaluateScript("window.__ultralight._isAvailable = true;");
-    caller->EvaluateScript("window.__remountApp();");
+    view_iface->EvaluateScript("window.__ultralight._isAvailable = true;");
+    view_iface->EvaluateScript("window.__remountApp();");
 }
 
 JSValueRef FbxexAppMain::CloseWindow(
@@ -165,18 +188,23 @@ JSValueRef FbxexAppMain::selectFbxFile(
     if (!instance_ || !instance_->window_) {
       return JSValueMakeBoolean(ctx, false);
     }
-    std::wstring wpath = OpenFileDialogWin32(
-        (HWND)instance_->window_->native_handle()
-    );
-    path = WStringToUtf8(wpath);
+    if (!instance_->ui_factory_) {
+      instance_->ui_factory_ = std::make_unique<DefaultUiFactory>();
+    }
+    path = instance_->ui_factory_->OpenFileDialog(instance_->window_->native_handle());
 #endif
     if (path.empty()) {
       return JSValueMakeBoolean(ctx, false);
     }
     try {
-      instance_->fbx_client_ = std::make_unique<FBXClientEager>(path);
+      if (!instance_->client_factory_) {
+        instance_->client_factory_ = std::make_unique<DefaultFBXClientFactory>();
+      }
+      instance_->fbx_client_ = instance_->client_factory_->Create(path);
     } catch (const std::exception& ex) {
-      ultralight::ShowMessageBox("Error", ex.what());
+      if (instance_->ui_factory_) {
+        instance_->ui_factory_->ShowMessageBox("Error", ex.what());
+      }
       return JSValueMakeBoolean(ctx, false);
     }
     return JSValueMakeBoolean(ctx, true);

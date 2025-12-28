@@ -1,11 +1,18 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 #include <nlohmann/json.hpp>
 
 #include <JavaScriptCore/JavaScript.h>
 
 #include "binders.hpp"
 
+// Forward declarations for internal helpers under test (defined in binders.cpp).
+JSValueRef JsonToJSValueStep(JSContextRef ctx, const nlohmann::json& j);
+JSObjectRef JsonToJSObject(JSContextRef ctx, const nlohmann::json& j);
+
 namespace {
+
+using Catch::Approx;
 
 std::string JsValueToString(JSContextRef ctx, JSValueRef value) {
     JSStringRef js_str = JSValueToStringCopy(ctx, value, nullptr);
@@ -21,6 +28,55 @@ std::string JsValueToString(JSContextRef ctx, JSValueRef value) {
 }
 
 } // namespace
+
+TEST_CASE("JsonToJSValueStep converts primitive JSON types") {
+    JSGlobalContextRef ctx = JSGlobalContextCreate(nullptr);
+    REQUIRE(ctx != nullptr);
+
+    auto null_value = JsonToJSValueStep(ctx, nullptr);
+    REQUIRE(JSValueIsNull(ctx, null_value));
+
+    auto bool_value = JsonToJSValueStep(ctx, true);
+    REQUIRE(JSValueIsBoolean(ctx, bool_value));
+    REQUIRE(JSValueToBoolean(ctx, bool_value) == true);
+
+    auto int_value = JsonToJSValueStep(ctx, -3);
+    REQUIRE(JSValueIsNumber(ctx, int_value));
+    REQUIRE(JSValueToNumber(ctx, int_value, nullptr) == Approx(-3.0));
+
+    auto unsigned_value = JsonToJSValueStep(ctx, nlohmann::json(7u));
+    REQUIRE(JSValueIsNumber(ctx, unsigned_value));
+    REQUIRE(JSValueToNumber(ctx, unsigned_value, nullptr) == Approx(7.0));
+
+    auto float_value = JsonToJSValueStep(ctx, 2.5);
+    REQUIRE(JSValueIsNumber(ctx, float_value));
+    REQUIRE(JSValueToNumber(ctx, float_value, nullptr) == Approx(2.5));
+
+    auto string_value = JsonToJSValueStep(ctx, "hello");
+    REQUIRE(JsValueToString(ctx, string_value) == "hello");
+
+    JSGlobalContextRelease(ctx);
+}
+
+TEST_CASE("JsonToJSValueStep throws on unsupported JSON types") {
+    JSGlobalContextRef ctx = JSGlobalContextCreate(nullptr);
+    REQUIRE(ctx != nullptr);
+
+    nlohmann::json unsupported = nlohmann::json::binary({0x00, 0x01});
+    REQUIRE_THROWS_AS(JsonToJSValueStep(ctx, unsupported), std::runtime_error);
+
+    JSGlobalContextRelease(ctx);
+}
+
+TEST_CASE("JsonToJSObject rejects non-object JSON roots") {
+    JSGlobalContextRef ctx = JSGlobalContextCreate(nullptr);
+    REQUIRE(ctx != nullptr);
+
+    nlohmann::json not_object = 123;
+    REQUIRE_THROWS_AS(JsonToJSObject(ctx, not_object), std::runtime_error);
+
+    JSGlobalContextRelease(ctx);
+}
 
 TEST_CASE("BindFBXNodeProps converts FBXNodeProps to JS object") {
     JSGlobalContextRef ctx = JSGlobalContextCreate(nullptr);

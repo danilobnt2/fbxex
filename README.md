@@ -93,6 +93,7 @@ llvm-profdata merge -sparse "$PWD/build/tests/fbxex_tests_*.profraw" -o "$PWD/bu
 llvm-cov report "$PWD/build/tests/fbxex_tests.exe" `
   -instr-profile="$PWD/build/coverage.profdata" `
   -path-equivalence="$PWD","$PWD" `
+  -ignore-filename-regex="ultralight_adapters.cpp" `
   src
 ```
 

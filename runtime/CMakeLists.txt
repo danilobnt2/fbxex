@@ -217,6 +217,7 @@ if(WIN32)
     src/winmain.cpp
     src/fbxclienteager.cpp
     src/fbxexappmain.cpp
+    src/ultralight_adapters.cpp
     src/fbxdtserialize.cpp
     src/winfio.cpp
     src/binders.cpp
@@ -228,9 +229,21 @@ endif()
 
 # Set up include directories
 target_include_directories(fbxex PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+target_include_directories(fbxex SYSTEM PRIVATE
   "${ULTRALIGHT_SDK_PATH}/include"
   "${FBX_SDK_PATH}/include"
 )
+
+if(MSVC)
+  target_compile_options(fbxex PRIVATE
+    /external:I"${ULTRALIGHT_SDK_PATH}/include"
+    /external:I"${FBX_SDK_PATH}/include"
+    /external:W0
+    /experimental:external
+  )
+endif()
 
 target_compile_definitions(fbxex PRIVATE
   FBXEX_VERSION="${FBXEX_VERSION}"

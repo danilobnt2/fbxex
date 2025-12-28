@@ -9,14 +9,26 @@ add_executable(fbxex_tests
   ../src/binders.cpp
   ../src/fbxdtserialize.cpp
   ../src/fbxclienteager.cpp
+  ../src/ultralight_adapters.cpp
   ../src/fbxexappmain.cpp
 )
 
 target_include_directories(fbxex_tests PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+)
+target_include_directories(fbxex_tests SYSTEM PRIVATE
   "${FBX_SDK_PATH}/include"
   "${ULTRALIGHT_SDK_PATH}/include"
 )
+
+if(MSVC)
+  target_compile_options(fbxex_tests PRIVATE
+    /external:I"${FBX_SDK_PATH}/include"
+    /external:I"${ULTRALIGHT_SDK_PATH}/include"
+    /external:W0
+    /experimental:external
+  )
+endif()
 
 target_compile_definitions(fbxex_tests PRIVATE FBXSDK_SHARED)
 
