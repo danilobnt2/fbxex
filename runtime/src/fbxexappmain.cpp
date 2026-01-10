@@ -6,6 +6,7 @@
 
 #include <AppCore/AppCore.h>
 #include <JavaScriptCore/JavaScript.h>
+#include <Ultralight/platform/Platform.h>
 
 #include <fbxsdk.h>
 
@@ -73,9 +74,15 @@ void FbxexAppMain::InitializeUi() {
         client_factory_ = std::make_unique<DefaultFBXClientFactory>();
     }
 
+    if (!file_system_) {
+        file_system_ = CreateEmbeddedFileSystem();
+        ultralight::Platform::instance().set_file_system(file_system_.get());
+    }
+
     ultralight::Settings settings;
     settings.app_name = "fbxex";
     ultralight::Config config;
+    config.resource_path_prefix = "resources/";
     config.force_repaint = true; // needed for css scrollbars to work properly
     app_ = ui_factory_->CreateApp(settings, config);
     if (!app_) { throw std::runtime_error("Failed to create Ultralight App"); }

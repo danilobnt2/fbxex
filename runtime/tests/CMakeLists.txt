@@ -11,10 +11,12 @@ add_executable(fbxex_tests
   ../src/fbxclienteager.cpp
   ../src/ultralight_adapters.cpp
   ../src/fbxexappmain.cpp
+  ../src/embedded_filesystem.cpp
 )
 
 target_include_directories(fbxex_tests PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/../src"
+  "${FBXEX_GENERATED_DIR}"
 )
 target_include_directories(fbxex_tests SYSTEM PRIVATE
   "${FBX_SDK_PATH}/include"

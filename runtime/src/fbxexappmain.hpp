@@ -11,6 +11,7 @@
 #include "binders.hpp"
 #include "fbxclienteager.hpp"
 #include "fbxnode.hpp"
+#include "embedded_filesystem.hpp"
 
 #ifdef _WIN32
 #include "winfio.hpp"
@@ -192,5 +193,6 @@ class FbxexAppMain : public ultralight::AppListener,
         std::unique_ptr<IApp> app_;
         std::unique_ptr<IWindow> window_;
         std::unique_ptr<IOverlay> overlay_;
+        std::unique_ptr<ultralight::FileSystem> file_system_;
 
 };
