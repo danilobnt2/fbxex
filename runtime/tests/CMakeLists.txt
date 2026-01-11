@@ -1,4 +1,5 @@
 add_executable(fbxex_tests
+  embedded_filesystem_tests.cpp
   fbxnode_tests.cpp
   winfio_tests.cpp
   fbxdtserialize_tests.cpp
