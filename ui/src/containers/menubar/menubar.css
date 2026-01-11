@@ -1,0 +1,71 @@
+@reference "tailwindcss";
+
+@layer components {
+  .menu-bar {
+    @apply px-2 min-h-0 h-8;
+    background: var(--panel);
+    color: var(--text);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+    font-family: "Sora", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  }
+
+  .menu-content {
+    @apply flex items-center gap-1 h-8 px-0;
+  }
+
+  .menu-navbar-item {
+    @apply h-8 flex items-center;
+  }
+
+  .menu-trigger {
+    @apply h-8 min-h-0 px-3 text-[13px] font-medium shadow-none bg-transparent;
+    color: var(--text);
+    border-radius: 0px;
+    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+    @apply focus-visible:outline-none;
+  }
+
+  .menu-trigger:hover,
+  .menu-trigger:focus-visible {
+    background-color: var(--panel-highlight);
+    color: #f5f7fb;
+  }
+
+  .menu-trigger:active {
+    background-color: rgba(255, 255, 255, 0.08);
+    color: #f5f7fb;
+  }
+
+  .menu-dropdown {
+    @apply min-w-[160px] rounded-none border shadow-lg py-1 z-50;
+    background: var(--panel-raised);
+    border-color: var(--border);
+    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  }
+
+  .drop-item {
+    @apply text-[13px] px-3 py-2 cursor-pointer rounded-none;
+    color: var(--text);
+    transition: background-color 140ms ease, color 140ms ease;
+  }
+
+  .drop-item:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+    color: #f5f7fb;
+  }
+
+  .drop-item[data-pressed="true"] {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #fdfefe;
+  }
+
+  .drop-item[data-focus-visible="true"] {
+    outline: none;
+    background-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .menu-file-input {
+    @apply hidden;
+  }
+}
