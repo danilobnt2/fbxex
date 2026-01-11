@@ -1,0 +1,111 @@
+name: Auto-tag on merge to main
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write  # push tags
+
+jobs:
+  tag:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main (full history + tags)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Decide bump (label > title token > default)
+        id: bump
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+          # Set DEFAULT_BUMP to "patch" (common), or "fail" (strict)
+          DEFAULT_BUMP: patch
+        run: |
+          echo "PR title: $PR_TITLE"
+          echo "PR labels JSON: $PR_LABELS"
+
+          # Extract label names
+          LABEL_NAMES=$(echo "$PR_LABELS" | jq -r '.[].name' 2>/dev/null || true)
+
+          bump=""
+
+          label_count=$(echo "$LABEL_NAMES" | grep -ciE '^semver:(major|minor|patch)$' || true)
+          title_count=$(echo "$PR_TITLE" | grep -ciE '(\[(major|minor|patch)\]|#(major|minor|patch))' || true)
+
+          if [ $((label_count + title_count)) -gt 1 ]; then
+            echo "Multiple SemVer markers found; keep only one label or title token."
+            exit 1
+          fi
+
+          if [ "$label_count" -eq 1 ]; then
+            label=$(echo "$LABEL_NAMES" | grep -iE '^semver:(major|minor|patch)$' | head -n1 | tr 'A-Z' 'a-z')
+            bump="${label#semver:}"
+          elif [ "$title_count" -eq 1 ]; then
+            token=$(echo "$PR_TITLE" | grep -oiE '\[(major|minor|patch)\]|#(major|minor|patch)' | head -n1)
+            bump=$(echo "$token" | tr -d '[]#' | tr 'A-Z' 'a-z')
+          fi
+
+          # Default or fail
+          if [ -z "$bump" ]; then
+            if [ "$DEFAULT_BUMP" = "fail" ]; then
+              echo "No bump specified via label or title token; failing."
+              exit 1
+            fi
+            bump="$DEFAULT_BUMP"
+          fi
+
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "Selected bump: $bump"
+
+      - name: Compute next tag
+        id: next
+        env:
+          BUMP: ${{ steps.bump.outputs.bump }}
+        run: |
+          # Find latest SemVer tag (vX.Y.Z)
+          # If none exists, start at v0.0.0 -> bump applies.
+          latest=$(git tag -l 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1 || true)
+          if [ -z "$latest" ]; then
+            latest="v0.0.0"
+          fi
+
+          ver="${latest#v}"
+          IFS='.' read -r major minor patch <<< "$ver"
+
+          case "$BUMP" in
+            major) major=$((major+1)); minor=0; patch=0;;
+            minor) minor=$((minor+1)); patch=0;;
+            patch) patch=$((patch+1));;
+            *) echo "Unknown bump: $BUMP"; exit 1;;
+          esac
+
+          next="v${major}.${minor}.${patch}"
+
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "tag=$next" >> "$GITHUB_OUTPUT"
+
+          echo "Latest tag: $latest"
+          echo "Next tag:   $next"
+
+      - name: Create tag on main HEAD (merge commit) if missing
+        env:
+          TAG: ${{ steps.next.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # If tag already exists, skip
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists; skipping."
+            exit 0
+          fi
+
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
