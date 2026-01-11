@@ -41,7 +41,7 @@ class MockTreePlatform implements ITreePlatform {
 
 const createStore = () => createAppStore(new MockTreePlatform());
 
-const loadRoot = async () => (await import("./main")).Root;
+const loadRoot = async () => (await import("./app")).Root;
 
 describe("main entry", () => {
   beforeEach(() => {
