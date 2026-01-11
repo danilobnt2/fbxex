@@ -1,0 +1,184 @@
+name: CD
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+env:
+  NODE_VERSION: "22"
+  ULTRALIGHT_OCI: ghcr.io/${{ github.repository }}/ultralightsdk-1.4.0.7z@sha256:8ad467524e74eeb14b80813263ded3b9b6e6b85db8c3b6c8ab288318614f05dc
+  FBX_SDK_OCI: ghcr.io/${{ github.repository }}/fbxsdk-2020.3.7.zip@sha256:738ba8a18a683f60d2e1ac6e1694a41169f12a8ba0c4b63535c9a1d787b160d3
+  ULTRALIGHT_SDK_PATH: ${{ github.workspace }}\ultralight-sdk
+  FBX_SDK_PATH: ${{ github.workspace }}\fbx-sdk
+  CMAKE_BUILD_DIR: ${{ github.workspace }}\build\runtime
+
+jobs:
+  release:
+    runs-on: windows-2025
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tag points to main
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = $env:GITHUB_REF_NAME
+          $tagCommit = git rev-list -n 1 $tag
+          $branches = git branch -r --contains $tagCommit --format "%(refname:short)"
+          if (-not ($branches | Where-Object { $_ -eq "origin/main" })) {
+            throw "Tag $tag does not point to main."
+          }
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install oras
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "1.3.0"
+          $url = "https://github.com/oras-project/oras/releases/download/v$version/oras_${version}_windows_amd64.zip"
+          $zipPath = Join-Path $env:RUNNER_TEMP "oras_${version}.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zipPath
+          $binDir = Join-Path $env:USERPROFILE "bin"
+          New-Item -ItemType Directory -Path $binDir -Force | Out-Null
+          Expand-Archive -Path $zipPath -DestinationPath $binDir -Force
+          $orasExe = Join-Path $binDir "oras.exe"
+          if (-not (Test-Path $orasExe)) { throw "oras.exe not found after extraction" }
+          "$binDir" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & $orasExe version
+
+      - name: Install jq
+        shell: pwsh
+        run: |
+          choco install jq --no-progress --yes
+
+      - name: Pull SDK artifacts
+        env:
+          ORAS_PASSWORD: ${{ secrets.GHCR_TOKEN }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          oras login ghcr.io -u $env:GITHUB_ACTOR -p $env:ORAS_PASSWORD
+          oras pull $env:ULTRALIGHT_OCI -o ultralight-sdk.7z
+          oras pull $env:FBX_SDK_OCI -o fbx-sdk.zip
+          7z x ultralight-sdk.7z -oultralight-sdk | Out-Null
+          7z x fbx-sdk.zip -ofbx-sdk | Out-Null
+
+      - name: Build UI
+        working-directory: ui
+        shell: pwsh
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy UI build to runtime assets
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $assetsDir = Join-Path $env:GITHUB_WORKSPACE "runtime/assets"
+          Get-ChildItem $assetsDir -Force | Where-Object { $_.Name -notin @(".gitignore","fbxex.ico") } | Remove-Item -Force -Recurse
+          Copy-Item (Join-Path $env:GITHUB_WORKSPACE "ui/dist/*") $assetsDir -Recurse -Force
+
+      - name: Configure runtime (CMake)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $env:PATH = "C:\Program Files\LLVM\bin;$($env:PATH)"
+          cmake -S runtime -B $env:CMAKE_BUILD_DIR `
+            -G "Ninja" `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DFBXEX_VERSION="$($env:GITHUB_REF_NAME)" `
+            -DCMAKE_C_COMPILER=clang-cl `
+            -DCMAKE_CXX_COMPILER=clang-cl `
+            -DULTRALIGHT_SDK_PATH="$env:ULTRALIGHT_SDK_PATH" `
+            -DFBX_SDK_PATH="$env:FBX_SDK_PATH"
+
+      - name: Build runtime
+        shell: pwsh
+        run: |
+          $env:PATH = "C:\Program Files\LLVM\bin;$($env:PATH)"
+          cmake --build $env:CMAKE_BUILD_DIR
+
+      - name: Package release artifact
+        id: package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = $env:GITHUB_REF_NAME
+          $outDir = Join-Path $env:RUNNER_TEMP "fbxex-$tag"
+          $zipPath = Join-Path $env:RUNNER_TEMP "fbxex-$tag-windows-x64.zip"
+          New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+          Copy-Item (Join-Path $env:CMAKE_BUILD_DIR "fbxex.exe") $outDir -Force
+          Copy-Item (Join-Path $env:CMAKE_BUILD_DIR "*.dll") $outDir -Force
+          if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
+          Compress-Archive -Path (Join-Path $outDir "*") -DestinationPath $zipPath
+          "asset=$zipPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build release notes
+        id: notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $tag = $env:GITHUB_REF_NAME
+          $tagCommit = git rev-list -n 1 $tag
+          $tagDate = git log -1 --format=%cI $tagCommit
+          $tags = git tag -l "v[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname
+          $prevTag = $tags | Where-Object { $_ -ne $tag } | Select-Object -First 1
+          if ($prevTag) {
+            $prevCommit = git rev-list -n 1 $prevTag
+            $prevDate = git log -1 --format=%cI $prevCommit
+          } else {
+            $prevDate = "1970-01-01T00:00:00Z"
+          }
+
+          $lines = gh api --paginate "repos/$env:GITHUB_REPOSITORY/pulls?state=closed&base=develop&sort=updated&direction=desc&per_page=100" `
+            --jq '.[] | select(.merged_at != null) | [.title, .merged_at] | @tsv'
+          $lines = @($lines)
+
+          $titles = @()
+          foreach ($line in $lines) {
+            if (-not $line) { continue }
+            $parts = $line -split "`t", 2
+            if ($parts.Length -ne 2) { continue }
+            $title = $parts[0].Trim()
+            $mergedAt = [datetime]::Parse($parts[1])
+            if ($mergedAt -gt [datetime]::Parse($prevDate) -and $mergedAt -le [datetime]::Parse($tagDate)) {
+              $titles += $title
+            }
+          }
+
+          $notesPath = Join-Path $env:RUNNER_TEMP "release_notes.md"
+          "# Changes" | Out-File -FilePath $notesPath -Encoding utf8
+          if ($titles.Count -eq 0) {
+            "* (no PRs found)" | Out-File -FilePath $notesPath -Encoding utf8 -Append
+          } else {
+            foreach ($title in $titles) {
+              "* $title" | Out-File -FilePath $notesPath -Encoding utf8 -Append
+            }
+          }
+
+          "notes=$notesPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          gh release create $tag --title $tag --notes-file "${{ steps.notes.outputs.notes }}" "${{ steps.package.outputs.asset }}"

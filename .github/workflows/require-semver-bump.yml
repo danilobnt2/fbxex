@@ -1,0 +1,55 @@
+name: Require SemVer bump marker
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, labeled, unlabeled, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  require-bump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate bump marker (label or title token)
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_LABELS: ${{ toJson(github.event.pull_request.labels) }}
+        run: |
+          LABEL_NAMES=$(echo "$PR_LABELS" | jq -r '.[].name' 2>/dev/null || true)
+
+          ok="false"
+          count=0
+          source=""
+
+          # Count label markers
+          if echo "$LABEL_NAMES" | grep -qiE '^semver:(major|minor|patch)$'; then
+            count=$((count + $(echo "$LABEL_NAMES" | grep -ciE '^semver:(major|minor|patch)$')))
+            source="label"
+          fi
+
+          # Count title markers
+          if echo "$PR_TITLE" | grep -qiE '(\[(major|minor|patch)\]|#(major|minor|patch))'; then
+            count=$((count + $(echo "$PR_TITLE" | grep -ciE '(\[(major|minor|patch)\]|#(major|minor|patch))')))
+            if [ -z "$source" ]; then
+              source="title"
+            else
+              source="$source+title"
+            fi
+          fi
+
+          if [ "$count" -eq 1 ]; then ok="true"; fi
+
+          if [ "$ok" != "true" ]; then
+            if [ "$count" -eq 0 ]; then
+              echo "Missing SemVer bump marker."
+              echo "Add one PR label: semver:major | semver:minor | semver:patch"
+              echo "OR add a title token: [major] / [minor] / [patch]"
+            else
+              echo "Multiple SemVer bump markers found in $source."
+              echo "Keep only one label or title token."
+            fi
+            exit 1
+          fi
+
+          echo "Bump marker found."
