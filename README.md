@@ -2,112 +2,15 @@
 
 A lightweight Windows desktop application for exploring and inspecting FBX files.
 
-## Contributing - Building from Source
+![fbxex screenshot](assets/screenshot01.png)
 
-### Prerequisites
+## Highlights
 
-- [Git](https://gitforwindows.org/)
-- [CMake](https://cmake.org/download/) (Add to PATH during install)
-- [Visual Studio 2022](https://visualstudio.microsoft.com/vs/community/) with "Desktop development with C++" workload and the "C++ Clang tools for Windows" component (clang-cl/llvm-cov/llvm-profdata)
-- [Ninja](https://ninja-build.org/) — lightweight build system
-- [Node.js](https://nodejs.org/) with npm
+- Open FBX files from the app menu and load the scene into an in-memory node map.
+- Browse the node hierarchy in a tree view with expand/collapse and load status.
+- Select a node to see its properties and attributes serialized to JSON.
 
-### Steps
+## How it works
 
-1. **Download and install runtime dependencies**
-
-   - Download the Ultralight SDK from https://ultralig.ht/download and extract it somewhere on your machine.
-
-     CMake will try to autolocate the SDK at the following paths
-   
-     - `%PROGRAMFILES%/Ultralight/SDK`
-     - `%HOME/Ultralight/SDK`
-   
-     But you can manually provide the path with the CMake flag `-DULTRALIGHT_SDK_PATH`
-
-   - Download the FBX SDK from https://aps.autodesk.com/developer/overview/fbx-sdk and install it somewhere on your machine.
-
-     CMake will try to autolocate the SDK at the following paths (`*` indicates check on all subfolders)
-
-     - `%PROGRAMFILES%/Autodesk/FBX/FBX SDK/*`
-     - `%HOME/Autodesk/FBX/FBX SDK/*`
-
-     But you can manually provide the path with the CMake flag `-DFBX_SDK_PATH`
-
-2. **Build the UI**
-
-   From inside the `ui` folder package the React application using npm.
-
-   ```powershell
-   npm install
-   npm run build
-   ```
-
-   Copy the content of `ui/dist` to `runtime/assets`.
-
-3. **Build the runtime with CMake**
-
-   Make sure the Visual Studio Developer PowerShell (x64) is active so the VS toolchain and tools (for example `clang-cl`, `llvm-cov`, `llvm-profdata`, `link`, and `ninja`) are available.
-
-   ```powershell
-   Import-Module 'C:\\Program Files\\Microsoft Visual Studio\\...\\Common7\\Tools\\Microsoft.VisualStudio.DevShell.dll' 
-   Enter-VsDevShell -VsInstallPath: 'C:\\Program Files\\Microsoft Visual Studio\\...' -DevCmdArguments '-arch=x64'
-   ```
-
-   After that you can build the runtime by using CMake and Ninja from inside the `runtime` folder. CMakeLists defaults Ninja builds to clang-cl, and selects the ClangCL toolset for the VS generator.
-
-   ```powershell
-   cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_BUILD_TYPE=Release
-   cmake --build build
-   ```
-
-   To build and launch the runtime in dev mode (points at the UI dev server on localhost:5173 by default) in one step, use the `run-dev` target:
-
-   ```powershell
-   cmake --build build --config Release --target run-dev
-   ```
-
-   You can change the dev server port by re-configuring with `-DFBXEX_DEV_PORT=3000`.
-
-4. **Run the application**
-   
-   `.runtime/build/Release/fbxex.exe`
-
-## Contributing - Running unit tests
-
-### Runtime tests (C++/Catch2)
-
-From inside `runtime` (after configuring the SDK paths as in the build section):
-
-```powershell
-cmake -B build -G Ninja -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DCMAKE_BUILD_TYPE=Debug -DFBXEX_ENABLE_COVERAGE=ON
-cmake --build build --target fbxex_tests
-ctest --test-dir build --output-on-failure
-```
-
-Coverage (clang-cl + llvm-cov) after running tests:
-
-```powershell
-ctest --test-dir build --output-on-failure
-llvm-profdata merge -sparse "$PWD/build/tests/fbxex_tests_*.profraw" -o "$PWD/build/coverage.profdata"
-llvm-cov report "$PWD/build/tests/fbxex_tests.exe" `
-  -instr-profile="$PWD/build/coverage.profdata" `
-  -path-equivalence="$PWD","$PWD" `
-  -ignore-filename-regex="ultralight_adapters.cpp" `
-  src
-```
-
-### UI tests (React)
-
-From inside `ui`:
-
-```powershell
-npm install
-npm run test
-```
-
-Coverage report can be obtained via
-
-```
-npm run test -- --coverage --watch=false
-``` 
+- Runtime loads the FBX scene in memory via the FBX SDK and eagerly builds a node index.
+- Properties and attributes of each node are serialized into JSON and bridged to the UI layer.
