@@ -2,6 +2,7 @@ name: Require SemVer bump marker
 
 on:
   pull_request:
+    branches: [main]
     types: [opened, edited, synchronize, labeled, unlabeled, reopened]
 
 permissions:
