@@ -1,9 +1,9 @@
 name: CD
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_run:
+    workflows: ["Auto-tag on merge to main"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -19,6 +19,7 @@ env:
 
 jobs:
   release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: windows-2025
 
     steps:
@@ -27,11 +28,33 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Resolve release tag from workflow run
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          git fetch --tags --force
+          git fetch origin main --force
+          $mainSha = git rev-parse origin/main
+          $tag = git tag --points-at $mainSha --list "v*.*.*" | Select-Object -First 1
+          if (-not $tag) {
+            $tag = git tag -l "v*.*.*" --sort=-v:refname | Select-Object -First 1
+          }
+          if (-not $tag) {
+            throw "No SemVer tag found on main."
+          }
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Checkout release tag
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          git checkout $env:RELEASE_TAG
+
       - name: Ensure tag points to main
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:RELEASE_TAG
           $tagCommit = git rev-list -n 1 $tag
           $branches = git branch -r --contains $tagCommit --format "%(refname:short)"
           if (-not ($branches | Where-Object { $_ -eq "origin/main" })) {
@@ -101,7 +124,7 @@ jobs:
           cmake -S runtime -B $env:CMAKE_BUILD_DIR `
             -G "Ninja" `
             -DCMAKE_BUILD_TYPE=Release `
-            -DFBXEX_VERSION="$($env:GITHUB_REF_NAME)" `
+            -DFBXEX_VERSION="$($env:RELEASE_TAG)" `
             -DCMAKE_C_COMPILER=clang-cl `
             -DCMAKE_CXX_COMPILER=clang-cl `
             -DULTRALIGHT_SDK_PATH="$env:ULTRALIGHT_SDK_PATH" `
@@ -118,7 +141,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:RELEASE_TAG
           $outDir = Join-Path $env:RUNNER_TEMP "fbxex-$tag"
           $zipPath = Join-Path $env:RUNNER_TEMP "fbxex-$tag-windows-x64.zip"
           New-Item -ItemType Directory -Path $outDir -Force | Out-Null
@@ -135,7 +158,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:RELEASE_TAG
           $tagCommit = git rev-list -n 1 $tag
           $tagDate = git log -1 --format=%cI $tagCommit
           $tags = git tag -l "v[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname
@@ -180,5 +203,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: pwsh
         run: |
-          $tag = $env:GITHUB_REF_NAME
+          $tag = $env:RELEASE_TAG
           gh release create $tag --title $tag --notes-file "${{ steps.notes.outputs.notes }}" "${{ steps.package.outputs.asset }}"
