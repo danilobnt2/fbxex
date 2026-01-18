@@ -7,7 +7,7 @@ export type TreeNode = {
   id: TreeNodeId;
   parentId: TreeNodeId | null;
   children: TreeNodeId[] | null;
-  previewProperties: { name: string };
+  previewProperties: { name: string; attributeTypes?: string[] };
   isExpanded: boolean;
   isLoading: boolean;
   isSelected: boolean;
@@ -23,10 +23,15 @@ export type TreeViewState = {
 
 const getDefaultNodeName = (id: TreeNodeId) => `.$Node ${id}`;
 
-const createNode = (id: TreeNodeId, parentId: TreeNodeId | null = null, name?: string): TreeNode => ({
+const createNode = (
+  id: TreeNodeId,
+  parentId: TreeNodeId | null = null,
+  name?: string,
+  attributeTypes?: string[]
+): TreeNode => ({
   id,
   parentId,
-  previewProperties: { name: name ?? getDefaultNodeName(id) },
+  previewProperties: { name: name ?? getDefaultNodeName(id), attributeTypes },
   children: null,
   isExpanded: false,
   isLoading: false,
@@ -39,13 +44,16 @@ export const initialTreeViewState: TreeViewState = {
   selectedNodeId: null,
 };
 
-type TreeChildNode = { id: TreeNodeId; previewProperties?: { name?: string } };
+type TreeChildNode = { id: TreeNodeId; previewProperties?: { name?: string; attributeTypes?: string[] } };
 
 export type TreeViewAction =
   | { type: "TREE/RESET"; payload?: { rootId?: TreeNodeId } }
   | { type: "TREE/EXPAND_REQUESTED"; payload: { id: TreeNodeId } }
   | { type: "TREE/COLLAPSED"; payload: { id: TreeNodeId } }
-  | { type: "TREE/CHILDREN_LOADED"; payload: { id: TreeNodeId; previewProperties?: { name?: string }; children: TreeChildNode[] } }
+  | {
+      type: "TREE/CHILDREN_LOADED";
+      payload: { id: TreeNodeId; previewProperties?: { name?: string; attributeTypes?: string[] }; children: TreeChildNode[] };
+    }
   | { type: "TREE/EXPAND_FAILED"; payload: { id: TreeNodeId; error: string } }
   | { type: "TREE/NODE_SELECTED"; payload: { id: TreeNodeId } }
   | { type: "TREE/PROPERTIES_LOADED"; payload: { id: TreeNodeId; properties: FBXNodeProps } }
@@ -74,7 +82,7 @@ export const selectNode = (id: TreeNodeId): TreeViewAction => ({
 export const treeChildrenLoaded = (
   id: TreeNodeId,
   children: TreeChildNode[],
-  previewProperties?: { name?: string }
+  previewProperties?: { name?: string; attributeTypes?: string[] }
 ): TreeViewAction => ({
   type: "TREE/CHILDREN_LOADED",
   payload: { id, children, previewProperties },
@@ -131,13 +139,14 @@ export const treeViewReducer = (
     }
     case "TREE/CHILDREN_LOADED": {
       const { id, children, previewProperties } = action.payload;
-      const parent = state.nodes[id] ?? createNode(id, null, previewProperties?.name);
+      const parent = state.nodes[id] ?? createNode(id, null, previewProperties?.name, previewProperties?.attributeTypes);
       const nodes = { ...state.nodes };
 
       nodes[id] = {
         ...parent,
         previewProperties: {
           name: previewProperties?.name ?? parent.previewProperties.name ?? getDefaultNodeName(id),
+          attributeTypes: previewProperties?.attributeTypes ?? parent.previewProperties.attributeTypes,
         },
         children: children.map((child) => child.id),
         isExpanded: true,
@@ -147,14 +156,16 @@ export const treeViewReducer = (
 
       children.forEach((child) => {
         const existingChild = nodes[child.id];
-        const childName = child.previewProperties?.name ?? existingChild?.previewProperties?.name ?? getDefaultNodeName(child.id);
+        const childName =
+          child.previewProperties?.name ?? existingChild?.previewProperties?.name ?? getDefaultNodeName(child.id);
+        const childAttributeTypes = child.previewProperties?.attributeTypes ?? existingChild?.previewProperties?.attributeTypes;
         nodes[child.id] = existingChild
           ? {
               ...existingChild,
               parentId: existingChild.parentId ?? id,
-              previewProperties: { name: childName },
+              previewProperties: { name: childName, attributeTypes: childAttributeTypes },
             }
-          : createNode(child.id, id, childName);
+          : createNode(child.id, id, childName, childAttributeTypes);
       });
 
       return { ...state, nodes };
@@ -227,7 +238,7 @@ export interface ITreePlatform {
   isPlatformAvailable: () => boolean;
   getFBXNodeChildren: (id: TreeNodeId) => TreeNodeId[];
   getFBXNodeProperties: (id: TreeNodeId) => FBXNodeProps;
-  getFBXPreviewProperties: (id: TreeNodeId) => { name?: string };
+  getFBXPreviewProperties: (id: TreeNodeId) => { name?: string; attributeTypes?: string[] };
 }
 
 export const createTreeViewMiddleware =
