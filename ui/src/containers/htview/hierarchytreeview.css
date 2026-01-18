@@ -107,7 +107,7 @@
     @apply text-sm font-medium;
   }
 
-  .ht-node-id {
+  .ht-node-details {
     @apply text-xs;
     color: var(--muted);
   }

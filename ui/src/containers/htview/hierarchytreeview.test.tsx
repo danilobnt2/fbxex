@@ -71,7 +71,7 @@ describe("HierarchyTreeView", () => {
     renderWithState(<HierarchyTreeView {...service} />, state, service);
 
     expect(screen.getByText(/Root/)).toBeInTheDocument();
-    expect(screen.getByText("[0]")).toBeInTheDocument();
+    expect(screen.getByText("[#0]")).toBeInTheDocument();
     expect(screen.getByText("Open an FBX file to populate the tree.")).toBeInTheDocument();
   });
 
@@ -93,7 +93,7 @@ describe("HierarchyTreeView", () => {
 
     renderWithState(<HierarchyTreeView {...service} />, state, service);
 
-    expect(screen.getByText("Mesh, Light")).toBeInTheDocument();
+    expect(screen.getByText("Mesh, Light [#0]")).toBeInTheDocument();
   });
 
   it("dispatches collapse when toggling an expanded node", () => {

@@ -96,8 +96,11 @@ const TreeNodeRow: React.FC<TreeNodeRowProps> = ({ id, depth, rootId, tree }) =>
               {label}
               {isRootWaiting && " (select a file to load)"}
             </span>
-            {attributeTypes && <span className="ht-node-attributes">{attributeTypes}</span>}
-            <span className="ht-node-id">[{node.id}]</span>
+            <span className="ht-node-details">
+              {attributeTypes}
+              {attributeTypes ? " " : ""}
+              [#{node.id}]
+            </span>
           </div>
 
           <div className="ht-statuses">
