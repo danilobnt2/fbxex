@@ -71,8 +71,29 @@ describe("HierarchyTreeView", () => {
     renderWithState(<HierarchyTreeView {...service} />, state, service);
 
     expect(screen.getByText(/Root/)).toBeInTheDocument();
-    expect(screen.getByText("#0")).toBeInTheDocument();
+    expect(screen.getByText("[0]")).toBeInTheDocument();
     expect(screen.getByText("Open an FBX file to populate the tree.")).toBeInTheDocument();
+  });
+
+  it("shows attribute types when provided", () => {
+    const service = createService();
+    const state: TreeState = {
+      tree: {
+        rootId: 0,
+        selectedNodeId: null,
+        nodes: {
+          0: makeNode({
+            previewProperties: { name: "Root", attributeTypes: ["Mesh", "Light"] },
+            children: null,
+            isExpanded: true,
+          }),
+        },
+      },
+    };
+
+    renderWithState(<HierarchyTreeView {...service} />, state, service);
+
+    expect(screen.getByText("Mesh, Light")).toBeInTheDocument();
   });
 
   it("dispatches collapse when toggling an expanded node", () => {
