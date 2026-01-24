@@ -30,6 +30,10 @@ void CollectNodes(const ufbx_node* node, std::vector<const ufbx_node*>& out) {
     }
 }
 
+bool ShouldIncludeProp(const ufbx_prop& prop) {
+    return (prop.flags & UFBX_PROP_FLAG_SYNTHETIC) == 0;
+}
+
 } // namespace
 
 TEST_CASE("FBXClientEager throws on invalid file path") {
@@ -93,7 +97,11 @@ TEST_CASE("FBXClientEager mirrors ufbx node hierarchy and metadata") {
         std::vector<nlohmann::json> expected_props;
         expected_props.reserve(node->props.props.count);
         for (size_t prop_idx = 0; prop_idx < node->props.props.count; ++prop_idx) {
-            expected_props.push_back(SerializeFbxProperty(node->props.props.data[prop_idx]));
+            const ufbx_prop& prop = node->props.props.data[prop_idx];
+            if (!ShouldIncludeProp(prop)) {
+                continue;
+            }
+            expected_props.push_back(SerializeFbxProperty(prop));
         }
         REQUIRE(props->properties.size() == expected_props.size());
         for (size_t prop_idx = 0; prop_idx < expected_props.size(); ++prop_idx) {
@@ -105,7 +113,19 @@ TEST_CASE("FBXClientEager mirrors ufbx node hierarchy and metadata") {
         for (size_t attr_idx = 0; attr_idx < node->all_attribs.count; ++attr_idx) {
             const ufbx_element* attr = node->all_attribs.data[attr_idx];
             REQUIRE(attr != nullptr);
-            expected_attrs.push_back(SerializeUfbxAttribute(*attr));
+            nlohmann::json attr_json = SerializeUfbxAttribute(*attr);
+            if (attr_json.contains("properties") && attr_json["properties"].is_array()) {
+                nlohmann::json filtered = nlohmann::json::array();
+                for (size_t prop_idx = 0; prop_idx < attr->props.props.count; ++prop_idx) {
+                    const ufbx_prop& prop = attr->props.props.data[prop_idx];
+                    if (!ShouldIncludeProp(prop)) {
+                        continue;
+                    }
+                    filtered.push_back(SerializeFbxProperty(prop));
+                }
+                attr_json["properties"] = std::move(filtered);
+            }
+            expected_attrs.push_back(std::move(attr_json));
         }
         REQUIRE(props->attributes.size() == expected_attrs.size());
         for (size_t attr_idx = 0; attr_idx < expected_attrs.size(); ++attr_idx) {

@@ -26,6 +26,10 @@ std::shared_ptr<ufbx_scene> LoadSceneFromPath(const std::string& path) {
     return std::shared_ptr<ufbx_scene>(scene, [](ufbx_scene* s) { ufbx_free_scene(s); });
 }
 
+bool ShouldIncludeProp(const ufbx_prop& prop) {
+    return (prop.flags & UFBX_PROP_FLAG_SYNTHETIC) == 0;
+}
+
 } // namespace
 
 FBXClientEager::FBXClientEager(const std::string& path)
@@ -76,6 +80,9 @@ void FBXClientEager::populateNodeData(const ufbx_node* fbx_node, NodeData& node_
     node_data.props.properties.clear();
     for (size_t idx = 0; idx < fbx_node->props.props.count; ++idx) {
         const ufbx_prop& prop = fbx_node->props.props.data[idx];
+        if (!ShouldIncludeProp(prop)) {
+            continue;
+        }
         node_data.props.properties.push_back(SerializeFbxProperty(prop));
     }
 
@@ -85,7 +92,19 @@ void FBXClientEager::populateNodeData(const ufbx_node* fbx_node, NodeData& node_
         if (!attrib) {
             continue;
         }
-        node_data.props.attributes.push_back(SerializeUfbxAttribute(*attrib));
+        nlohmann::json attr = SerializeUfbxAttribute(*attrib);
+        if (attr.contains("properties") && attr["properties"].is_array()) {
+            nlohmann::json filtered = nlohmann::json::array();
+            for (size_t prop_idx = 0; prop_idx < attrib->props.props.count; ++prop_idx) {
+                const ufbx_prop& prop = attrib->props.props.data[prop_idx];
+                if (!ShouldIncludeProp(prop)) {
+                    continue;
+                }
+                filtered.push_back(SerializeFbxProperty(prop));
+            }
+            attr["properties"] = std::move(filtered);
+        }
+        node_data.props.attributes.push_back(std::move(attr));
     }
 }
 
