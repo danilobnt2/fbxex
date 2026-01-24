@@ -9,10 +9,6 @@ std::string UfbxStringToString(const ufbx_string& value) {
 
 namespace {
 
-nlohmann::json ToJson(const ufbx_vec2& v) {
-    return nlohmann::json::array({v.x, v.y});
-}
-
 nlohmann::json ToJson(const ufbx_vec3& v) {
     return nlohmann::json::array({v.x, v.y, v.z});
 }
