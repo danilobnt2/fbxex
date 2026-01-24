@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(fbxex CXX)
+project(fbxex C CXX)
 
-# since we use #embed this should be C++23, but fbxsdk does not compile with that yet
-# so we rely con clang accepting it anyway
+# since we use #embed this should be C++23, but we keep C++17 for compatibility
+# and rely on clang accepting it anyway
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -114,6 +114,22 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(nlohmann_json)
 
 FetchContent_Declare(
+  ufbx
+  GIT_REPOSITORY https://github.com/ufbx/ufbx.git
+  GIT_TAG v0.16.1
+)
+
+FetchContent_MakeAvailable(ufbx)
+
+add_library(ufbx STATIC
+  "${ufbx_SOURCE_DIR}/ufbx.c"
+)
+target_include_directories(ufbx PUBLIC
+  "${ufbx_SOURCE_DIR}"
+)
+set_target_properties(ufbx PROPERTIES LINKER_LANGUAGE C)
+
+FetchContent_Declare(
   Catch2
   GIT_REPOSITORY https://github.com/catchorg/Catch2.git
   GIT_TAG v3.5.2
@@ -218,65 +234,6 @@ file(WRITE "${FBXEX_EMBEDDED_DATA_INC}"
   "};\n"
   "static constexpr size_t kEmbeddedFileCount = sizeof(kEmbeddedFiles) / sizeof(kEmbeddedFiles[0]);\n")
 
-# Autodesk FBX SDK path - modify this or set via -DFBX_SDK_PATH
-if(NOT DEFINED FBX_SDK_PATH)
-  if(DEFINED ENV{FBX_SDK_PATH})
-    set(FBX_SDK_PATH "$ENV{FBX_SDK_PATH}")
-  endif()
-
-  if(NOT DEFINED FBX_SDK_PATH)
-    set(_fbx_candidate_roots
-      "$ENV{HOME}/Autodesk/FBX/FBX SDK"
-      "$ENV{PROGRAMFILES}/Autodesk/FBX/FBX SDK"
-    )
-    foreach(_root IN LISTS _fbx_candidate_roots)
-      if(NOT _root)
-        continue()
-      endif()
-      if(EXISTS "${_root}/include/fbxsdk.h")
-        set(FBX_SDK_PATH "${_root}")
-        break()
-      endif()
-    endforeach()
-  endif()
-endif()
-
-if(NOT DEFINED FBX_SDK_PATH OR NOT EXISTS "${FBX_SDK_PATH}/include/fbxsdk.h")
-  message(FATAL_ERROR
-    "Autodesk FBX SDK not found. Please set FBX_SDK_PATH:\n"
-    "  cmake -B build -DFBX_SDK_PATH=C:/path/to/Autodesk/FBX_SDK\n"
-    "\n"
-    "Download the SDK from: https://aps.autodesk.com/developer/overview/fbx-sdk"
-  )
-endif()
-
-set(FBX_SDK_LIB_BASE "${FBX_SDK_PATH}/lib/x64")
-
-function(_fbx_pick_library out_var base_dir config)
-  set(_names ${ARGN})
-  foreach(_name IN LISTS _names)
-    set(_candidate "${base_dir}/${config}/${_name}")
-    if(EXISTS "${_candidate}")
-      set(${out_var} "${_candidate}" PARENT_SCOPE)
-      return()
-    endif()
-  endforeach()
-  set(${out_var} "" PARENT_SCOPE)
-endfunction()
-
-_fbx_pick_library(FBX_SDK_LIBRARY_RELEASE "${FBX_SDK_LIB_BASE}" "release" "libfbxsdk.lib" "libfbxsdk-md.lib" "libfbxsdk-mt.lib")
-_fbx_pick_library(FBX_SDK_XML_RELEASE "${FBX_SDK_LIB_BASE}" "release" "libxml2.lib" "libxml2-md.lib" "libxml2-mt.lib")
-_fbx_pick_library(FBX_SDK_ZLIB_RELEASE "${FBX_SDK_LIB_BASE}" "release" "zlib.lib" "zlib-md.lib" "zlib-mt.lib")
-
-foreach(_required_var IN ITEMS FBX_SDK_LIBRARY_RELEASE FBX_SDK_XML_RELEASE FBX_SDK_ZLIB_RELEASE)
-  if(NOT DEFINED ${_required_var} OR "${${_required_var}}" STREQUAL "")
-    message(FATAL_ERROR "Missing FBX SDK library (${_required_var}). Checked under ${FBX_SDK_LIB_BASE}")
-  endif()
-endforeach()
-
-message(STATUS "FBX SDK: ${FBX_SDK_PATH}")
-message(STATUS "FBX SDK toolchain: ${FBX_SDK_TOOLCHAIN_DIR}")
-
 # Create executable
 if(WIN32)
   add_executable(fbxex WIN32
@@ -302,13 +259,11 @@ target_include_directories(fbxex PRIVATE
 )
 target_include_directories(fbxex SYSTEM PRIVATE
   "${ULTRALIGHT_SDK_PATH}/include"
-  "${FBX_SDK_PATH}/include"
 )
 
 if(MSVC)
   target_compile_options(fbxex PRIVATE
     /external:I"${ULTRALIGHT_SDK_PATH}/include"
-    /external:I"${FBX_SDK_PATH}/include"
     /external:W0
     /experimental:external
   )
@@ -316,7 +271,6 @@ endif()
 
 target_compile_definitions(fbxex PRIVATE
   FBXEX_VERSION="${FBXEX_VERSION}"
-  FBXSDK_SHARED
 )
 
 # Link libraries
@@ -328,9 +282,7 @@ if(WIN32)
     Ultralight.lib
     WebCore.lib
     nlohmann_json::nlohmann_json
-    ${FBX_SDK_LIBRARY_RELEASE}
-    ${FBX_SDK_XML_RELEASE}
-    ${FBX_SDK_ZLIB_RELEASE}
+    ufbx
   )
   
   # Copy DLLs to build output directory
@@ -346,9 +298,6 @@ if(WIN32)
     "$<TARGET_FILE_DIR:fbxex>/"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${ULTRALIGHT_SDK_PATH}/bin/WebCore.dll"
-    "$<TARGET_FILE_DIR:fbxex>/"
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${FBX_SDK_LIB_BASE}/release/libfbxsdk.dll"
     "$<TARGET_FILE_DIR:fbxex>/"
   )
   else()
