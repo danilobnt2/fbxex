@@ -9,51 +9,21 @@
 
 namespace {
 
-using ManagerPtr = std::shared_ptr<FbxManager>;
-using ScenePtr = std::shared_ptr<FbxScene>;
-
-ManagerPtr CreateManager() {
-    auto manager = ManagerPtr(
-        FbxManager::Create(), 
-        [](FbxManager* m) { if (m) m->Destroy(); });
-    if (!manager) {
-        throw std::runtime_error("Failed to create FBX manager");
-    }
-    FbxIOSettings* ios = FbxIOSettings::Create(manager.get(), IOSROOT);
-    manager->SetIOSettings(ios);
-    return manager;
-}
-
-std::pair<ManagerPtr, ScenePtr> LoadSceneFromPath(const std::string& path) {
-    auto manager = CreateManager();
-
-    auto importer_deleter = [](FbxImporter* imp) { if (imp) imp->Destroy(); };
-    std::unique_ptr<FbxImporter, decltype(importer_deleter)> importer(
-        FbxImporter::Create(manager.get(), ""), importer_deleter);
-    if (!importer) {
-        throw std::runtime_error("Failed to create FBX importer");
-    }
-
-    if (!importer->Initialize(path.c_str(), -1, manager->GetIOSettings())) {
-        throw std::runtime_error(
-            std::string("FBX importer initialization failed: ") +
-            importer->GetStatus().GetErrorString());
-    }
-
-    ScenePtr scene(
-        FbxScene::Create(manager.get(), "scene"), 
-        [](FbxScene* s) { if (s) s->Destroy(); });
+std::shared_ptr<ufbx_scene> LoadSceneFromPath(const std::string& path) {
+    ufbx_load_opts opts = {};
+    ufbx_error error = {};
+    ufbx_scene* scene = ufbx_load_file(path.c_str(), &opts, &error);
     if (!scene) {
-        throw std::runtime_error("Failed to create FBX scene");
+        std::string message = UfbxStringToString(error.description);
+        if (message.empty() && error.info_length > 0) {
+            message.assign(error.info, error.info_length);
+        }
+        if (message.empty()) {
+            message = "UFBX load failed";
+        }
+        throw std::runtime_error(message);
     }
-
-    if (!importer->Import(scene.get())) {
-        throw std::runtime_error(
-            std::string("FBX import failed: ") +
-            importer->GetStatus().GetErrorString());
-    }
-
-    return {std::move(manager), std::move(scene)};
+    return std::shared_ptr<ufbx_scene>(scene, [](ufbx_scene* s) { ufbx_free_scene(s); });
 }
 
 } // namespace
@@ -62,30 +32,22 @@ FBXClientEager::FBXClientEager(const std::string& path)
     : FBXClientEager(LoadSceneFromPath(path)) {}
 
 FBXClientEager::FBXClientEager(
-    std::pair<std::shared_ptr<FbxManager>, std::shared_ptr<FbxScene>> resources)
-    : FBXClientEager(
-          std::move(resources.first),
-          std::move(resources.second)) {}
-
-FBXClientEager::FBXClientEager(
-    std::shared_ptr<FbxManager> manager,
-    std::shared_ptr<FbxScene> scene)
-    : manager_(std::move(manager)),
-      scene_(std::move(scene)) {
-    if (!manager_ || !scene_) {
-        throw std::invalid_argument("Manager and scene must not be null");
+    std::shared_ptr<ufbx_scene> scene)
+    : scene_(std::move(scene)) {
+    if (!scene_) {
+        throw std::invalid_argument("Scene must not be null");
     }
 
     nodes_.clear();
-    nodes_.reserve(static_cast<size_t>(scene_->GetNodeCount()));
+    nodes_.reserve(scene_->nodes.count + 1);
 
     // id 0 is reserved for the root node.
     nodes_.push_back(NodeData{});
-    FbxNode* root = scene_->GetRootNode();
+    const ufbx_node* root = scene_->root_node;
     populateNodeData(root, nodes_[0]);
     if (root) {
-        for (int i = 0; i < root->GetChildCount(); ++i) {
-            buildNodeMap(root->GetChild(i), 0);
+        for (size_t i = 0; i < root->children.count; ++i) {
+            buildNodeMap(root->children.data[i], 0);
         }
     }
 }
@@ -104,39 +66,30 @@ std::vector<size_t> FBXClientEager::getNodeChildren(size_t id) const {
     return nodes_[id].children;
 }
 
-void FBXClientEager::populateNodeData(FbxNode* fbx_node, NodeData& node_data) {
+void FBXClientEager::populateNodeData(const ufbx_node* fbx_node, NodeData& node_data) {
     if (!fbx_node) {
         return;
     }
 
-    node_data.props.name = fbx_node->GetName();
+    node_data.props.name = UfbxStringToString(fbx_node->name);
 
-    FbxProperty property = fbx_node->GetFirstProperty();
-    while (property.IsValid()) {
-        try {
-            node_data.props.properties.push_back(SerializeFbxProperty(property));
-        } catch (const std::exception&) {
-            // Unsupported property types are skipped.
-        }
-        property = fbx_node->GetNextProperty(property);
+    node_data.props.properties.clear();
+    for (size_t idx = 0; idx < fbx_node->props.props.count; ++idx) {
+        const ufbx_prop& prop = fbx_node->props.props.data[idx];
+        node_data.props.properties.push_back(SerializeFbxProperty(prop));
     }
 
     node_data.props.attributes.clear();
-    const int attribute_count = fbx_node->GetNodeAttributeCount();
-    for (int idx = 0; idx < attribute_count; ++idx) {
-        FbxNodeAttribute* attribute = fbx_node->GetNodeAttributeByIndex(idx);
-        if (!attribute) {
+    for (size_t idx = 0; idx < fbx_node->all_attribs.count; ++idx) {
+        const ufbx_element* attrib = fbx_node->all_attribs.data[idx];
+        if (!attrib) {
             continue;
         }
-        try {
-            node_data.props.attributes.push_back(serializeNodeAttribute(attribute));
-        } catch (const std::exception&) {
-            // Unsupported attribute types are skipped.
-        }
+        node_data.props.attributes.push_back(SerializeUfbxAttribute(*attrib));
     }
 }
 
-void FBXClientEager::buildNodeMap(FbxNode* fbx_node, size_t parent_id) {
+void FBXClientEager::buildNodeMap(const ufbx_node* fbx_node, size_t parent_id) {
     if (!fbx_node) {
         return;
     }
@@ -149,28 +102,7 @@ void FBXClientEager::buildNodeMap(FbxNode* fbx_node, size_t parent_id) {
         nodes_[parent_id].children.push_back(current_id);
     }
 
-    for (int i = 0; i < fbx_node->GetChildCount(); ++i) {
-        buildNodeMap(fbx_node->GetChild(i), current_id);
+    for (size_t i = 0; i < fbx_node->children.count; ++i) {
+        buildNodeMap(fbx_node->children.data[i], current_id);
     }
-}
-
-nlohmann::json FBXClientEager::serializeNodeAttribute(FbxNodeAttribute* attribute) const {
-    nlohmann::json result;
-    const char* attr_name = attribute->GetName();
-    const char* attr_type_name = attribute->GetTypeName();
-    result["name"] = attr_name ? std::string(attr_name) : std::string();
-    result["type"] = attr_type_name ? std::string(attr_type_name) : std::string();
-    result["properties"] = nlohmann::json::array();
-
-    FbxProperty property = attribute->GetFirstProperty();
-    while (property.IsValid()) {
-        try {
-            result["properties"].push_back(SerializeFbxProperty(property));
-        } catch (const std::exception&) {
-            // Unsupported property types are skipped.
-        }
-        property = attribute->GetNextProperty(property);
-    }
-
-    return result;
 }

@@ -8,8 +8,6 @@
 #include <JavaScriptCore/JavaScript.h>
 #include <Ultralight/platform/Platform.h>
 
-#include <fbxsdk.h>
-
 #include "binders.hpp"
 #include "fbxnode.hpp"
 #include "ultralight_adapters.hpp"

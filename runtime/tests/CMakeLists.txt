@@ -20,24 +20,21 @@ target_include_directories(fbxex_tests PRIVATE
   "${FBXEX_GENERATED_DIR}"
 )
 target_include_directories(fbxex_tests SYSTEM PRIVATE
-  "${FBX_SDK_PATH}/include"
   "${ULTRALIGHT_SDK_PATH}/include"
 )
 
 if(MSVC)
   target_compile_options(fbxex_tests PRIVATE
-    /external:I"${FBX_SDK_PATH}/include"
     /external:I"${ULTRALIGHT_SDK_PATH}/include"
     /external:W0
     /experimental:external
   )
 endif()
 
-target_compile_definitions(fbxex_tests PRIVATE FBXSDK_SHARED)
-
 target_link_libraries(fbxex_tests PRIVATE
   Catch2::Catch2WithMain
   nlohmann_json::nlohmann_json
+  ufbx
   Ole32
   Comdlg32
   Shell32
@@ -49,14 +46,6 @@ target_link_libraries(fbxex_tests PRIVATE
 )
 
 target_link_directories(fbxex_tests PRIVATE "${ULTRALIGHT_SDK_PATH}/lib")
-
-if(DEFINED FBX_SDK_LIBRARY_RELEASE)
-  target_link_libraries(fbxex_tests PRIVATE
-    ${FBX_SDK_LIBRARY_RELEASE}
-    ${FBX_SDK_XML_RELEASE}
-    ${FBX_SDK_ZLIB_RELEASE}
-  )
-endif()
 
 add_custom_command(TARGET fbxex_tests POST_BUILD
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -70,9 +59,6 @@ add_custom_command(TARGET fbxex_tests POST_BUILD
     "$<TARGET_FILE_DIR:fbxex_tests>/"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
     "${ULTRALIGHT_SDK_PATH}/bin/WebCore.dll"
-    "$<TARGET_FILE_DIR:fbxex_tests>/"
-  COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${FBX_SDK_LIB_BASE}/release/libfbxsdk.dll"
     "$<TARGET_FILE_DIR:fbxex_tests>/"
 )
 

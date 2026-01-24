@@ -1,145 +1,162 @@
 #include "fbxdtserialize.hpp"
 
-#include <array>
-#include <stdexcept>
+std::string UfbxStringToString(const ufbx_string& value) {
+    if (!value.data || value.length == 0) {
+        return {};
+    }
+    return std::string(value.data, value.length);
+}
 
 namespace {
 
-nlohmann::json ToJson(const FbxDouble2& v) {
-    return nlohmann::json::array({v[0], v[1]});
+nlohmann::json ToJson(const ufbx_vec2& v) {
+    return nlohmann::json::array({v.x, v.y});
 }
 
-nlohmann::json ToJson(const FbxDouble3& v) {
-    return nlohmann::json::array({v[0], v[1], v[2]});
+nlohmann::json ToJson(const ufbx_vec3& v) {
+    return nlohmann::json::array({v.x, v.y, v.z});
 }
 
-nlohmann::json ToJson(const FbxDouble4& v) {
-    return nlohmann::json::array({v[0], v[1], v[2], v[3]});
+nlohmann::json ToJson(const ufbx_vec4& v) {
+    return nlohmann::json::array({v.x, v.y, v.z, v.w});
 }
 
-nlohmann::json ToJson(const FbxDouble4x4& m) {
-    nlohmann::json rows = nlohmann::json::array();
-    for (int i = 0; i < 4; ++i) {
-        nlohmann::json row = nlohmann::json::array();
-        for (int j = 0; j < 4; ++j) {
-            row.push_back(m[i][j]);
-        }
-        rows.push_back(row);
+const char* PropTypeToString(ufbx_prop_type type) {
+    switch (type) {
+        case UFBX_PROP_UNKNOWN:
+            return "UFBX_PROP_UNKNOWN";
+        case UFBX_PROP_BOOLEAN:
+            return "UFBX_PROP_BOOLEAN";
+        case UFBX_PROP_INTEGER:
+            return "UFBX_PROP_INTEGER";
+        case UFBX_PROP_NUMBER:
+            return "UFBX_PROP_NUMBER";
+        case UFBX_PROP_VECTOR:
+            return "UFBX_PROP_VECTOR";
+        case UFBX_PROP_COLOR:
+            return "UFBX_PROP_COLOR";
+        case UFBX_PROP_COLOR_WITH_ALPHA:
+            return "UFBX_PROP_COLOR_WITH_ALPHA";
+        case UFBX_PROP_STRING:
+            return "UFBX_PROP_STRING";
+        case UFBX_PROP_DATE_TIME:
+            return "UFBX_PROP_DATE_TIME";
+        case UFBX_PROP_TRANSLATION:
+            return "UFBX_PROP_TRANSLATION";
+        case UFBX_PROP_ROTATION:
+            return "UFBX_PROP_ROTATION";
+        case UFBX_PROP_SCALING:
+            return "UFBX_PROP_SCALING";
+        case UFBX_PROP_DISTANCE:
+            return "UFBX_PROP_DISTANCE";
+        case UFBX_PROP_COMPOUND:
+            return "UFBX_PROP_COMPOUND";
+        case UFBX_PROP_BLOB:
+            return "UFBX_PROP_BLOB";
+        case UFBX_PROP_REFERENCE:
+            return "UFBX_PROP_REFERENCE";
+        default:
+            return "UFBX_PROP_UNKNOWN";
     }
-    return rows;
+}
+
+const char* ElementTypeToString(ufbx_element_type type) {
+    switch (type) {
+        case UFBX_ELEMENT_MESH:
+            return "Mesh";
+        case UFBX_ELEMENT_LIGHT:
+            return "Light";
+        case UFBX_ELEMENT_CAMERA:
+            return "Camera";
+        case UFBX_ELEMENT_BONE:
+            return "Bone";
+        case UFBX_ELEMENT_EMPTY:
+            return "Empty";
+        case UFBX_ELEMENT_LINE_CURVE:
+            return "LineCurve";
+        case UFBX_ELEMENT_NURBS_CURVE:
+            return "NurbsCurve";
+        case UFBX_ELEMENT_NURBS_SURFACE:
+            return "NurbsSurface";
+        case UFBX_ELEMENT_NURBS_TRIM_SURFACE:
+            return "NurbsTrimSurface";
+        case UFBX_ELEMENT_NURBS_TRIM_BOUNDARY:
+            return "NurbsTrimBoundary";
+        case UFBX_ELEMENT_PROCEDURAL_GEOMETRY:
+            return "ProceduralGeometry";
+        case UFBX_ELEMENT_STEREO_CAMERA:
+            return "StereoCamera";
+        case UFBX_ELEMENT_CAMERA_SWITCHER:
+            return "CameraSwitcher";
+        case UFBX_ELEMENT_MARKER:
+            return "Marker";
+        case UFBX_ELEMENT_LOD_GROUP:
+            return "LODGroup";
+        default:
+            return "Unknown";
+    }
 }
 
 } // namespace
 
-nlohmann::json SerializeFbxProperty(const FbxProperty& property) {
+nlohmann::json SerializeFbxProperty(const ufbx_prop& property) {
     nlohmann::json result;
-    
-    auto name = property.GetNameAsCStr();
-    result["name"] = name ? std::string(name) : std::string();
+    result["name"] = UfbxStringToString(property.name);
+    result["type"] = PropTypeToString(property.type);
 
-    const FbxDataType data_type = property.GetPropertyDataType();
+    if ((property.flags & UFBX_PROP_FLAG_NO_VALUE) != 0) {
+        result["value"] = nullptr;
+        return result;
+    }
 
-    switch (data_type.GetType()) {
-        case FBXSDK_NAMESPACE::eFbxUndefined:
-            result["type"] = "eFbxUndefined";
+    switch (property.type) {
+        case UFBX_PROP_BOOLEAN:
+            result["value"] = static_cast<bool>(property.value_int != 0);
+            break;
+        case UFBX_PROP_INTEGER:
+            result["value"] = static_cast<long long>(property.value_int);
+            break;
+        case UFBX_PROP_NUMBER:
+            result["value"] = static_cast<double>(property.value_real);
+            break;
+        case UFBX_PROP_VECTOR:
+        case UFBX_PROP_COLOR:
+        case UFBX_PROP_TRANSLATION:
+        case UFBX_PROP_ROTATION:
+        case UFBX_PROP_SCALING:
+            result["value"] = ToJson(property.value_vec3);
+            break;
+        case UFBX_PROP_COLOR_WITH_ALPHA:
+            result["value"] = ToJson(property.value_vec4);
+            break;
+        case UFBX_PROP_STRING:
+        case UFBX_PROP_DATE_TIME:
+            result["value"] = UfbxStringToString(property.value_str);
+            break;
+        case UFBX_PROP_DISTANCE:
+            result["value"] = static_cast<double>(property.value_real);
+            break;
+        case UFBX_PROP_COMPOUND:
+        case UFBX_PROP_BLOB:
+        case UFBX_PROP_REFERENCE:
+        case UFBX_PROP_UNKNOWN:
+        default:
             result["value"] = nullptr;
             break;
-        case FBXSDK_NAMESPACE::eFbxChar:
-            result["type"] = "eFbxChar";
-            result["value"] = static_cast<int>(property.Get<FbxChar>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxUChar:
-            result["type"] = "eFbxUChar";
-            result["value"] = static_cast<unsigned int>(property.Get<FbxUChar>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxShort:
-            result["type"] = "eFbxShort";
-            result["value"] = static_cast<int>(property.Get<FbxShort>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxUShort:
-            result["type"] = "eFbxUShort";
-            result["value"] = static_cast<unsigned int>(property.Get<FbxUShort>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxUInt:
-            result["type"] = "eFbxUInt";
-            result["value"] = static_cast<unsigned int>(property.Get<FbxUInt>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxLongLong:
-            result["type"] = "eFbxLongLong";
-            result["value"] = static_cast<long long>(property.Get<FbxLongLong>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxULongLong:
-            result["type"] = "eFbxULongLong";
-            result["value"] = static_cast<unsigned long long>(property.Get<FbxULongLong>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxHalfFloat:
-            result["type"] = "eFbxHalfFloat";
-            result["value"] = static_cast<double>(property.Get<FbxHalfFloat>().value());
-            break;
-        case FBXSDK_NAMESPACE::eFbxBool:
-            result["type"] = "eFbxBool";
-            result["value"] = static_cast<bool>(property.Get<FbxBool>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxInt:
-            result["type"] = "eFbxInt";
-            result["value"] = static_cast<int>(property.Get<FbxInt>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxFloat:
-            result["type"] = "eFbxFloat";
-            result["value"] = static_cast<double>(property.Get<FbxFloat>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxDouble:
-            result["type"] = "eFbxDouble";
-            result["value"] = static_cast<double>(property.Get<FbxDouble>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxDouble2:
-            result["type"] = "eFbxDouble2";
-            result["value"] = ToJson(property.Get<FbxDouble2>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxDouble3:
-            result["type"] = "eFbxDouble3";
-            result["value"] = ToJson(property.Get<FbxDouble3>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxDouble4:
-            result["type"] = "eFbxDouble4";
-            result["value"] = ToJson(property.Get<FbxDouble4>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxDouble4x4:
-            result["type"] = "eFbxDouble4x4";
-            result["value"] = ToJson(property.Get<FbxDouble4x4>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxEnum:
-            result["type"] = "eFbxEnum";
-            result["value"] = static_cast<int>(property.Get<FbxEnum>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxEnumM:
-            result["type"] = "eFbxEnumM";
-            result["value"] = static_cast<int>(property.Get<FbxEnum>());
-            break;
-        case FBXSDK_NAMESPACE::eFbxString:
-            result["type"] = "eFbxString";
-            result["value"] = std::string(property.Get<FbxString>().Buffer());
-            break;
-        case FBXSDK_NAMESPACE::eFbxTime:
-            result["type"] = "eFbxTime";
-            result["value"] = std::string(property.Get<FbxTime>().GetTimeString());
-            break;
-        case FBXSDK_NAMESPACE::eFbxReference:
-            // Unsupported
-        case FBXSDK_NAMESPACE::eFbxBlob:
-            // Unsupported
-        case FBXSDK_NAMESPACE::eFbxDistance:
-            // Unsupported
-        case FBXSDK_NAMESPACE::eFbxDateTime:
-            result["type"] = "eFbxDateTime";
-            result["value"] = std::string(property.Get<FbxDateTime>().toString().Buffer());
-            break;
-        case FBXSDK_NAMESPACE::eFbxTypeCount:
-            result["type"] = "eFbxTypeCount";
-            result["value"] = static_cast<int>(property.Get<FbxInt>());
-            break;
-        default:
-            break;
+    }
+
+    return result;
+}
+
+nlohmann::json SerializeUfbxAttribute(const ufbx_element& attribute) {
+    nlohmann::json result;
+    result["name"] = UfbxStringToString(attribute.name);
+    result["type"] = ElementTypeToString(attribute.type);
+    result["properties"] = nlohmann::json::array();
+
+    for (size_t idx = 0; idx < attribute.props.props.count; ++idx) {
+        const ufbx_prop& prop = attribute.props.props.data[idx];
+        result["properties"].push_back(SerializeFbxProperty(prop));
     }
 
     return result;

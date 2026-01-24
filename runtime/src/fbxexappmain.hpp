@@ -6,8 +6,6 @@
 #include <AppCore/AppCore.h>
 #include <JavaScriptCore/JavaScript.h>
 
-#include <fbxsdk.h>
-
 #include "binders.hpp"
 #include "fbxclienteager.hpp"
 #include "fbxnode.hpp"

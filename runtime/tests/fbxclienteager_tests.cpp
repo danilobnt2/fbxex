@@ -1,103 +1,40 @@
 #include <catch2/catch_test_macros.hpp>
 
-#include <algorithm>
 #include <filesystem>
-#include <fbxsdk.h>
+#include <unordered_map>
+#include <vector>
+
+#include <nlohmann/json.hpp>
+#include <ufbx.h>
 
 #include "fbxclienteager.hpp"
+#include "fbxdtserialize.hpp"
+
+namespace {
+
+std::shared_ptr<ufbx_scene> LoadUfbxScene(const std::filesystem::path& path) {
+    ufbx_load_opts opts = {};
+    ufbx_error error = {};
+    ufbx_scene* scene = ufbx_load_file(path.string().c_str(), &opts, &error);
+    REQUIRE(scene != nullptr);
+    return std::shared_ptr<ufbx_scene>(scene, [](ufbx_scene* s) { ufbx_free_scene(s); });
+}
+
+void CollectNodes(const ufbx_node* node, std::vector<const ufbx_node*>& out) {
+    if (!node) {
+        return;
+    }
+    out.push_back(node);
+    for (size_t i = 0; i < node->children.count; ++i) {
+        CollectNodes(node->children.data[i], out);
+    }
+}
+
+} // namespace
 
 TEST_CASE("FBXClientEager throws on invalid file path") {
     const std::string invalid_path = "nonexistent_file_path_that_should_fail.fbx";
     REQUIRE_THROWS_AS(FBXClientEager(invalid_path), std::runtime_error);
-}
-
-TEST_CASE("FBXClientEager can build from an in-memory scene") {
-    auto manager = std::shared_ptr<FbxManager>(
-        FbxManager::Create(),
-        [](FbxManager* m) {
-            if (m) {
-                m->Destroy();
-            }
-        });
-    REQUIRE(manager);
-    manager->SetIOSettings(FbxIOSettings::Create(manager.get(), IOSROOT));
-
-    auto scene = std::shared_ptr<FbxScene>(
-        FbxScene::Create(manager.get(), "testScene"),
-        [](FbxScene* s) {
-            if (s) {
-                s->Destroy();
-            }
-        });
-    REQUIRE(scene);
-
-    FbxNode* root = scene->GetRootNode();
-    FbxNode* child_a = FbxNode::Create(scene.get(), "ChildA");
-    FbxNode* child_b = FbxNode::Create(scene.get(), "ChildB");
-    root->AddChild(child_a);
-    child_a->AddChild(child_b);
-
-    FbxProperty int_prop = FbxProperty::Create(child_a, FbxIntDT, "MyInt");
-    int_prop.Set<FbxInt>(7);
-
-    FBXClientEager client(manager, scene);
-
-    const FBXNodeProps* root_props = client.getNodeProps(0);
-    REQUIRE(root_props);
-    REQUIRE(root_props->name == root->GetName());
-
-    const auto root_children = client.getNodeChildren(0);
-    REQUIRE(root_children.size() == 1);
-    const size_t child_a_id = root_children.front();
-
-    const FBXNodeProps* child_a_props = client.getNodeProps(child_a_id);
-    REQUIRE(child_a_props);
-    REQUIRE(child_a_props->name == child_a->GetName());
-
-    SECTION("captures node attributes with properties") {
-        FbxNodeAttribute* mesh_attr = FbxMesh::Create(scene.get(), "MeshAttr");
-        child_a->AddNodeAttribute(mesh_attr);
-        FbxProperty mesh_prop = FbxProperty::Create(mesh_attr, FbxStringDT, "AttrProp");
-        mesh_prop.Set<FbxString>("mesh-prop-value");
-
-        FBXClientEager client_with_attr(manager, scene);
-        const FBXNodeProps* props_with_attr = client_with_attr.getNodeProps(child_a_id);
-        REQUIRE(props_with_attr);
-        REQUIRE(props_with_attr->attributes.size() == 1);
-        const auto& attr = props_with_attr->attributes.front();
-        REQUIRE(attr.value("name", "") == "MeshAttr");
-        REQUIRE_FALSE(attr.value("type", "").empty());
-        const auto attr_prop_it = std::find_if(
-            attr["properties"].begin(),
-            attr["properties"].end(),
-            [](const nlohmann::json& prop) {
-                return prop.value("name", "") == "AttrProp"
-                    && prop.value("type", "") == "eFbxString"
-                    && prop.value("value", "") == "mesh-prop-value";
-            });
-        REQUIRE(attr_prop_it != attr["properties"].end());
-    }
-
-    const auto prop_match = std::find_if(
-        child_a_props->properties.begin(),
-        child_a_props->properties.end(),
-        [](const nlohmann::json& prop) {
-            return prop.value("name", "") == "MyInt"
-                && prop.value("type", "") == "eFbxInt"
-                && prop.value("value", 0) == 7;
-        });
-    REQUIRE(prop_match != child_a_props->properties.end());
-
-    const auto child_a_children = client.getNodeChildren(child_a_id);
-    REQUIRE(child_a_children.size() == 1);
-    const size_t child_b_id = child_a_children.front();
-
-    const FBXNodeProps* child_b_props = client.getNodeProps(child_b_id);
-    REQUIRE(child_b_props);
-    REQUIRE(child_b_props->name == child_b->GetName());
-
-    REQUIRE(client.getNodeProps(9999) == nullptr);
-    REQUIRE(client.getNodeChildren(9999).empty());
 }
 
 TEST_CASE("FBXClientEager loads an FBX file from path") {
@@ -108,5 +45,74 @@ TEST_CASE("FBXClientEager loads an FBX file from path") {
     FBXClientEager client(asset_path.string());
     const FBXNodeProps* root_props = client.getNodeProps(0);
     REQUIRE(root_props);
-    REQUIRE_FALSE(root_props->name.empty());
+    auto scene = LoadUfbxScene(asset_path);
+    REQUIRE(scene);
+    REQUIRE(root_props->name == UfbxStringToString(scene->root_node->name));
+    REQUIRE(client.getNodeProps(9999) == nullptr);
+    REQUIRE(client.getNodeChildren(9999).empty());
+}
+
+TEST_CASE("FBXClientEager mirrors ufbx node hierarchy and metadata") {
+    const std::filesystem::path asset_path =
+        std::filesystem::path(__FILE__).parent_path() / "assets" / "test.fbx";
+    REQUIRE(std::filesystem::exists(asset_path));
+
+    auto scene = LoadUfbxScene(asset_path);
+    REQUIRE(scene);
+
+    std::vector<const ufbx_node*> expected_nodes;
+    CollectNodes(scene->root_node, expected_nodes);
+    REQUIRE_FALSE(expected_nodes.empty());
+
+    std::unordered_map<const ufbx_node*, size_t> node_ids;
+    node_ids.reserve(expected_nodes.size());
+    for (size_t i = 0; i < expected_nodes.size(); ++i) {
+        node_ids.emplace(expected_nodes[i], i);
+    }
+
+    FBXClientEager client(asset_path.string());
+
+    for (size_t i = 0; i < expected_nodes.size(); ++i) {
+        const ufbx_node* node = expected_nodes[i];
+        const FBXNodeProps* props = client.getNodeProps(i);
+        REQUIRE(props);
+        REQUIRE(props->name == UfbxStringToString(node->name));
+
+        std::vector<size_t> expected_children;
+        expected_children.reserve(node->children.count);
+        for (size_t child_idx = 0; child_idx < node->children.count; ++child_idx) {
+            const ufbx_node* child = node->children.data[child_idx];
+            auto found = node_ids.find(child);
+            REQUIRE(found != node_ids.end());
+            expected_children.push_back(found->second);
+        }
+        const auto actual_children = client.getNodeChildren(i);
+        REQUIRE(actual_children.size() == expected_children.size());
+        REQUIRE(actual_children == expected_children);
+
+        std::vector<nlohmann::json> expected_props;
+        expected_props.reserve(node->props.props.count);
+        for (size_t prop_idx = 0; prop_idx < node->props.props.count; ++prop_idx) {
+            expected_props.push_back(SerializeFbxProperty(node->props.props.data[prop_idx]));
+        }
+        REQUIRE(props->properties.size() == expected_props.size());
+        for (size_t prop_idx = 0; prop_idx < expected_props.size(); ++prop_idx) {
+            REQUIRE(props->properties[prop_idx] == expected_props[prop_idx]);
+        }
+
+        std::vector<nlohmann::json> expected_attrs;
+        expected_attrs.reserve(node->all_attribs.count);
+        for (size_t attr_idx = 0; attr_idx < node->all_attribs.count; ++attr_idx) {
+            const ufbx_element* attr = node->all_attribs.data[attr_idx];
+            REQUIRE(attr != nullptr);
+            expected_attrs.push_back(SerializeUfbxAttribute(*attr));
+        }
+        REQUIRE(props->attributes.size() == expected_attrs.size());
+        for (size_t attr_idx = 0; attr_idx < expected_attrs.size(); ++attr_idx) {
+            REQUIRE(props->attributes[attr_idx] == expected_attrs[attr_idx]);
+        }
+    }
+
+    REQUIRE(client.getNodeProps(expected_nodes.size()) == nullptr);
+    REQUIRE(client.getNodeChildren(expected_nodes.size()).empty());
 }
