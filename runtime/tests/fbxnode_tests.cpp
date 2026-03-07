@@ -24,6 +24,11 @@ public:
         return it->second;
     }
 
+    FBXFormat getFormat() const override {
+        return format_;
+    }
+
+    FBXFormat format_ = FBXFormat::Binary;
     std::unordered_map<size_t, FBXNodeProps> props_;
     std::unordered_map<size_t, std::vector<size_t>> children_;
 };
