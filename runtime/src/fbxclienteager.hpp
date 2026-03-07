@@ -13,6 +13,7 @@ class FBXClientEager : public IFBXClient {
 
         const FBXNodeProps* getNodeProps(size_t id) const override;
         std::vector<size_t> getNodeChildren(size_t id) const override;
+        FBXFormat getFormat() const override;
 
     private:
         struct NodeData {

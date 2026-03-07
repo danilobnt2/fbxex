@@ -63,6 +63,10 @@ const FBXNodeProps* FBXClientEager::getNodeProps(size_t id) const {
     return &nodes_[id].props;
 }
 
+FBXFormat FBXClientEager::getFormat() const {
+    return scene_->metadata.ascii ? FBXFormat::ASCII : FBXFormat::Binary;
+}
+
 std::vector<size_t> FBXClientEager::getNodeChildren(size_t id) const {
     if (id >= nodes_.size()) {
         return {};
