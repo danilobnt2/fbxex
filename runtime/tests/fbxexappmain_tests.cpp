@@ -42,6 +42,8 @@ public:
         }
         return it->second;
     }
+    FBXFormat getFormat() const override { return format; }
+    FBXFormat format = FBXFormat::Binary;
     std::unordered_map<size_t, FBXNodeProps> props;
     std::unordered_map<size_t, std::vector<size_t>> children;
 };
@@ -200,6 +202,11 @@ TEST_CASE("FbxexAppMain static helpers guard when instance is missing") {
         REQUIRE(JSValueToBoolean(ctx, result) == false);
     }
 
+    SECTION("getFBXFormat returns null without instance") {
+        JSValueRef result = FbxexAppMain::getFBXFormat(ctx, nullptr, nullptr, 0, nullptr, nullptr);
+        REQUIRE(JSValueIsNull(ctx, result));
+    }
+
     JSGlobalContextRelease(ctx);
 }
 
@@ -269,6 +276,47 @@ TEST_CASE("FbxexAppMain getFBXNode helpers use injected client") {
             JSValueRef null_children = FbxexAppMain::getFBXNodeChildren(ctx, nullptr, nullptr, 1, args_bad, nullptr);
             REQUIRE(JSValueIsNull(ctx, null_node));
             REQUIRE(JSValueIsNull(ctx, null_children));
+        }
+    }
+
+    JSGlobalContextRelease(ctx);
+}
+
+TEST_CASE("FbxexAppMain getFBXFormat returns format string from client") {
+    auto ui_factory = std::make_unique<MockUiFactory>();
+    MockUiFactory* ui_factory_ptr = ui_factory.get();
+    auto client_factory = std::make_unique<MockFBXClientFactory>();
+    MockFBXClientFactory* client_factory_ptr = client_factory.get();
+
+    JSGlobalContextRef ctx = JSGlobalContextCreate(nullptr);
+    REQUIRE(ctx != nullptr);
+
+    {
+        FbxexAppMain app("about:blank", std::move(ui_factory), std::move(client_factory));
+
+        SECTION("returns null when no client is loaded") {
+            JSValueRef result = FbxexAppMain::getFBXFormat(ctx, nullptr, nullptr, 0, nullptr, nullptr);
+            REQUIRE(JSValueIsNull(ctx, result));
+        }
+
+        SECTION("returns \"binary\" when client reports binary format") {
+            client_factory_ptr->prototype->format = FBXFormat::Binary;
+            ui_factory_ptr->dialog_result = "fakepath";
+            FbxexAppMain::selectFbxFile(ctx, nullptr, nullptr, 0, nullptr, nullptr);
+
+            JSValueRef result = FbxexAppMain::getFBXFormat(ctx, nullptr, nullptr, 0, nullptr, nullptr);
+            REQUIRE(JSValueIsString(ctx, result));
+            REQUIRE(JsValueToString(ctx, result) == "binary");
+        }
+
+        SECTION("returns \"ascii\" when client reports ASCII format") {
+            client_factory_ptr->prototype->format = FBXFormat::ASCII;
+            ui_factory_ptr->dialog_result = "fakepath";
+            FbxexAppMain::selectFbxFile(ctx, nullptr, nullptr, 0, nullptr, nullptr);
+
+            JSValueRef result = FbxexAppMain::getFBXFormat(ctx, nullptr, nullptr, 0, nullptr, nullptr);
+            REQUIRE(JSValueIsString(ctx, result));
+            REQUIRE(JsValueToString(ctx, result) == "ascii");
         }
     }
 

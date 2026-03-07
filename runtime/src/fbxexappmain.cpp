@@ -148,7 +148,8 @@ void FbxexAppMain::OnDOMReady(
         {"__ul_OpenAboutDialog", OpenAboutDialog},
         {"__ul_getAppVersion", getAppVersion},
         {"__ul_getFBXNode", getFBXNode},
-        {"__ul_getFBXNodeChildren", getFBXNodeChildren}
+        {"__ul_getFBXNodeChildren", getFBXNodeChildren},
+        {"__ul_getFBXFormat", getFBXFormat}
     });
     
     view_iface->EvaluateScript("window.__ultralight._isAvailable = true;");
@@ -245,6 +246,26 @@ JSValueRef FbxexAppMain::getFBXNode(
     size_t requested_node_id = JSValueToNumber(ctx, arguments[0], nullptr);
     FBXNode requested_node(requested_node_id, *(instance_->fbx_client_));
     return BindFBXNode(ctx, requested_node);
+}
+
+JSValueRef FbxexAppMain::getFBXFormat(
+    JSContextRef ctx,
+    JSObjectRef /*function*/,
+    JSObjectRef /*thisObject*/,
+    size_t /*argumentCount*/,
+    const JSValueRef /*arguments*/[],
+    JSValueRef* /*exception*/)
+{
+    if (!instance_ || !instance_->fbx_client_) {
+        return JSValueMakeNull(ctx);
+    }
+    const char* format_str = instance_->fbx_client_->getFormat() == FBXFormat::ASCII
+        ? "ascii"
+        : "binary";
+    JSStringRef js_str = JSStringCreateWithUTF8CString(format_str);
+    JSValueRef result = JSValueMakeString(ctx, js_str);
+    JSStringRelease(js_str);
+    return result;
 }
 
 JSValueRef FbxexAppMain::getFBXNodeChildren(
