@@ -178,6 +178,14 @@ class FbxexAppMain : public ultralight::AppListener,
             const JSValueRef arguments[],
             JSValueRef* /*exception*/);
 
+        static JSValueRef getFBXFormat(
+            JSContextRef ctx,
+            JSObjectRef /*function*/,
+            JSObjectRef /*thisObject*/,
+            size_t /*argumentCount*/,
+            const JSValueRef /*arguments*/[],
+            JSValueRef* /*exception*/);
+
         inline static FbxexAppMain* instance_ = nullptr;
     
     private:

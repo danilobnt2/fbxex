@@ -11,19 +11,27 @@ import {
 
 type FileSelectedAction = {
   type: "FILE_SELECTED";
+  payload: { format: string | null };
 };
+
+type AppStateShape = TreeAwareState & { loadedFileFormat: string | null };
 
 type Actions = TreeViewAction | FileSelectedAction;
 
-const rootReducer = (state: TreeAwareState | undefined, action: Actions): TreeAwareState => ({
+const rootReducer = (state: AppStateShape | undefined, action: Actions): AppStateShape => ({
   tree: treeViewReducer(state?.tree, action),
+  loadedFileFormat:
+    (action as FileSelectedAction).type === "FILE_SELECTED"
+      ? (action as FileSelectedAction).payload.format
+      : (state?.loadedFileFormat ?? null),
 });
 
-export const fileSelected = (): FileSelectedAction => ({
+export const fileSelected = (format: string | null): FileSelectedAction => ({
   type: "FILE_SELECTED",
+  payload: { format },
 });
 
-const fileSelectedMiddleware: Middleware<{}, TreeAwareState> = (storeApi) => (next) => (action) => {
+const fileSelectedMiddleware: Middleware<{}, AppStateShape> = (storeApi) => (next) => (action) => {
   const result = next(action);
   if ((action as FileSelectedAction).type === "FILE_SELECTED") {
     storeApi.dispatch(resetTree());

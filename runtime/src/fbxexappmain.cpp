@@ -148,7 +148,8 @@ void FbxexAppMain::OnDOMReady(
         {"__ul_OpenAboutDialog", OpenAboutDialog},
         {"__ul_getAppVersion", getAppVersion},
         {"__ul_getFBXNode", getFBXNode},
-        {"__ul_getFBXNodeChildren", getFBXNodeChildren}
+        {"__ul_getFBXNodeChildren", getFBXNodeChildren},
+        {"__ul_getFBXFormat", getFBXFormat}
     });
     
     view_iface->EvaluateScript("window.__ultralight._isAvailable = true;");
@@ -188,28 +189,23 @@ JSValueRef FbxexAppMain::selectFbxFile(
     const JSValueRef /*arguments*/[],
     JSValueRef* /*exception*/) 
 {
-    std::string path;
-#ifdef _WIN32
-    if (!instance_ || !instance_->window_) {
+    if (!instance_ || 
+        !instance_->window_ || 
+        !instance_->ui_factory_ || 
+        !instance_->client_factory_) {
       return JSValueMakeBoolean(ctx, false);
     }
-    if (!instance_->ui_factory_) {
-      instance_->ui_factory_ = std::make_unique<DefaultUiFactory>();
-    }
+    std::string path;
+#ifdef _WIN32
     path = instance_->ui_factory_->OpenFileDialog(instance_->window_->native_handle());
 #endif
     if (path.empty()) {
       return JSValueMakeBoolean(ctx, false);
     }
     try {
-      if (!instance_->client_factory_) {
-        instance_->client_factory_ = std::make_unique<DefaultFBXClientFactory>();
-      }
       instance_->fbx_client_ = instance_->client_factory_->Create(path);
     } catch (const std::exception& ex) {
-      if (instance_->ui_factory_) {
-        instance_->ui_factory_->ShowMessageBox("Error", ex.what());
-      }
+      instance_->ui_factory_->ShowMessageBox("Error", ex.what());
       return JSValueMakeBoolean(ctx, false);
     }
     return JSValueMakeBoolean(ctx, true);
@@ -250,6 +246,26 @@ JSValueRef FbxexAppMain::getFBXNode(
     size_t requested_node_id = JSValueToNumber(ctx, arguments[0], nullptr);
     FBXNode requested_node(requested_node_id, *(instance_->fbx_client_));
     return BindFBXNode(ctx, requested_node);
+}
+
+JSValueRef FbxexAppMain::getFBXFormat(
+    JSContextRef ctx,
+    JSObjectRef /*function*/,
+    JSObjectRef /*thisObject*/,
+    size_t /*argumentCount*/,
+    const JSValueRef /*arguments*/[],
+    JSValueRef* /*exception*/)
+{
+    if (!instance_ || !instance_->fbx_client_) {
+        return JSValueMakeNull(ctx);
+    }
+    const char* format_str = instance_->fbx_client_->getFormat() == FBXFormat::ASCII
+        ? "ascii"
+        : "binary";
+    JSStringRef js_str = JSStringCreateWithUTF8CString(format_str);
+    JSValueRef result = JSValueMakeString(ctx, js_str);
+    JSStringRelease(js_str);
+    return result;
 }
 
 JSValueRef FbxexAppMain::getFBXNodeChildren(

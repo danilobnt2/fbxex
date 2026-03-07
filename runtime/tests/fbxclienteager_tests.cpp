@@ -36,6 +36,19 @@ bool ShouldIncludeProp(const ufbx_prop& prop) {
 
 } // namespace
 
+TEST_CASE("FBXClientEager getFormat matches ufbx metadata") {
+    const std::filesystem::path asset_path =
+        std::filesystem::path(__FILE__).parent_path() / "assets" / "test.fbx";
+    REQUIRE(std::filesystem::exists(asset_path));
+
+    auto scene = LoadUfbxScene(asset_path);
+    REQUIRE(scene);
+
+    FBXClientEager client(asset_path.string());
+    FBXFormat expected = scene->metadata.ascii ? FBXFormat::ASCII : FBXFormat::Binary;
+    REQUIRE(client.getFormat() == expected);
+}
+
 TEST_CASE("FBXClientEager throws on invalid file path") {
     const std::string invalid_path = "nonexistent_file_path_that_should_fail.fbx";
     REQUIRE_THROWS_AS(FBXClientEager(invalid_path), std::runtime_error);
