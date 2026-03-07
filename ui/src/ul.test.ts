@@ -23,6 +23,7 @@ describe("ultralight bridge", () => {
     delete win.__ul_CloseWindow;
     delete win.__ul_OpenAboutDialog;
     delete win.__ul_getAppVersion;
+    delete win.__ul_getFBXFormat;
   });
 
   it("returns the same singleton instance across imports", async () => {
@@ -42,6 +43,7 @@ describe("ultralight bridge", () => {
     expectUnavailable(() => ul.closeWindow());
     expectUnavailable(() => ul.openAboutDialog());
     expectUnavailable(() => ul.getAppVersion());
+    expectUnavailable(() => ul.getFBXFormat());
   });
 
   it("delegates to Ultralight window bridge when available", () => {
@@ -53,6 +55,7 @@ describe("ultralight bridge", () => {
     win.__ul_CloseWindow = vi.fn();
     win.__ul_OpenAboutDialog = vi.fn();
     win.__ul_getAppVersion = vi.fn(() => "1.2.3");
+    win.__ul_getFBXFormat = vi.fn(() => "binary");
 
     (ul as any)._isAvailable = true;
 
@@ -77,5 +80,11 @@ describe("ultralight bridge", () => {
 
     expect(ul.getAppVersion()).toBe("1.2.3");
     expect(win.__ul_getAppVersion).toHaveBeenCalledTimes(1);
+
+    expect(ul.getFBXFormat()).toBe("binary");
+    expect(win.__ul_getFBXFormat).toHaveBeenCalledTimes(1);
+
+    win.__ul_getFBXFormat = vi.fn(() => null);
+    expect(ul.getFBXFormat()).toBeNull();
   });
 });

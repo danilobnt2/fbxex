@@ -66,6 +66,13 @@ class Ultralight {
     }
     return (window as any).__ul_getAppVersion();
   }
+
+  getFBXFormat(): string | null {
+    if (!this.isAvailable) {
+      throw new Error("Ultralight is not available.");
+    }
+    return (window as any).__ul_getFBXFormat() ?? null;
+  }
 }
 
 const ultralight = Ultralight.instance;

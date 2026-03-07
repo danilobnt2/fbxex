@@ -3,7 +3,7 @@ import { Provider } from "react-redux";
 import { describe, it, beforeEach, afterEach, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 
-import { createAppStore } from "./store";
+import { createAppStore, fileSelected } from "./store";
 import { ITreePlatform } from "./viewmodels/treeview";
 import { FBXNodeProps } from "./models/fbxnode";
 
@@ -15,6 +15,7 @@ const mockUl = {
   getAppVersion: vi.fn(() => "mock-version"),
   getFBXNode: vi.fn((id: number) => ({ props: { name: `Node ${id}`, properties: [], attributes: [] } })),
   getFBXNodeChildren: vi.fn(() => [] as number[]),
+  getFBXFormat: vi.fn(() => null as string | null),
 };
 
 vi.mock("./ul", () => ({ default: mockUl }));
@@ -94,6 +95,31 @@ describe("main entry", () => {
     unmount();
     await waitFor(() => {
       expect(window.__remountApp).toBeUndefined();
+    });
+  });
+
+  it("shows file format in status bar after file is loaded", async () => {
+    mockUl.isAvailable = true;
+    mockUl.getAppVersion.mockReturnValue("1.0.0");
+    const Root = await loadRoot();
+    const store = createStore();
+
+    render(
+      <Provider store={store}>
+        <Root />
+      </Provider>
+    );
+
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+
+    store.dispatch(fileSelected("binary"));
+    await waitFor(() => {
+      expect(screen.getByText("File format: binary")).toBeInTheDocument();
+    });
+
+    store.dispatch(fileSelected("ascii"));
+    await waitFor(() => {
+      expect(screen.getByText("File format: ascii")).toBeInTheDocument();
     });
   });
 

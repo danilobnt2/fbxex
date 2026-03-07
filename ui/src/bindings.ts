@@ -9,7 +9,7 @@ export class UltralightPlatformUtils implements IPlatformUtils {
   selectFbxFile = () => ul.selectFbxFile();
   closeWindow = () => ul.closeWindow();
   openAboutDialog = () => ul.openAboutDialog();
-  createFileSelectedAction = () => fileSelected();
+  createFileSelectedAction = () => fileSelected(ul.getFBXFormat());
   onPlatformNotAvailable = () => alert("Ultralight not available.");
 }
 
