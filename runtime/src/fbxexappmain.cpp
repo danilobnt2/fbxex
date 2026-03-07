@@ -188,14 +188,14 @@ JSValueRef FbxexAppMain::selectFbxFile(
     const JSValueRef /*arguments*/[],
     JSValueRef* /*exception*/) 
 {
-    std::string path;
-#ifdef _WIN32
     if (!instance_ || 
         !instance_->window_ || 
         !instance_->ui_factory_ || 
         !instance_->client_factory_) {
       return JSValueMakeBoolean(ctx, false);
     }
+    std::string path;
+#ifdef _WIN32
     path = instance_->ui_factory_->OpenFileDialog(instance_->window_->native_handle());
 #endif
     if (path.empty()) {
@@ -204,9 +204,7 @@ JSValueRef FbxexAppMain::selectFbxFile(
     try {
       instance_->fbx_client_ = instance_->client_factory_->Create(path);
     } catch (const std::exception& ex) {
-      if (instance_->ui_factory_) {
-        instance_->ui_factory_->ShowMessageBox("Error", ex.what());
-      }
+      instance_->ui_factory_->ShowMessageBox("Error", ex.what());
       return JSValueMakeBoolean(ctx, false);
     }
     return JSValueMakeBoolean(ctx, true);
