@@ -25,6 +25,7 @@ export function Root() {
   }, []);
 
   const appVersion = ul.isAvailable ? ul.getAppVersion() : DEFAULT_APP_VERSION;
+  const fbxFormat = useSelector((state: AppState) => state.loadedFileFormat);
   const selectedNode = useSelector((state: AppState) => state.tree.selectedNodeId);
   const selectedNodeProps = useSelector((state: AppState) =>
     selectedNode ? state.tree.nodes[selectedNode].properties : null
@@ -61,7 +62,7 @@ export function Root() {
           </div>
           <div className="status-bar">
             <span className="status-item">fbxex {appVersion}</span>
-            <span className="status-item">Ready</span>
+            <span className="status-item">{fbxFormat ? `File format: ${fbxFormat}` : "Ready"}</span>
           </div>
         </div>
       </HeroUIProvider>

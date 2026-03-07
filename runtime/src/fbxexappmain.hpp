@@ -6,8 +6,6 @@
 #include <AppCore/AppCore.h>
 #include <JavaScriptCore/JavaScript.h>
 
-#include <fbxsdk.h>
-
 #include "binders.hpp"
 #include "fbxclienteager.hpp"
 #include "fbxnode.hpp"
@@ -178,6 +176,14 @@ class FbxexAppMain : public ultralight::AppListener,
             JSObjectRef /*thisObject*/,
             size_t /*argumentCount*/,
             const JSValueRef arguments[],
+            JSValueRef* /*exception*/);
+
+        static JSValueRef getFBXFormat(
+            JSContextRef ctx,
+            JSObjectRef /*function*/,
+            JSObjectRef /*thisObject*/,
+            size_t /*argumentCount*/,
+            const JSValueRef /*arguments*/[],
             JSValueRef* /*exception*/);
 
         inline static FbxexAppMain* instance_ = nullptr;

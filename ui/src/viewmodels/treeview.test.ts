@@ -25,7 +25,7 @@ const createMockPlatform = (overrides: Partial<Mocked<ITreePlatform>> = {}): Moc
     properties: [],
     attributes: [],
   })),
-  getFBXPreviewProperties: vi.fn<(id: number) => { name?: string }>((id) => ({})),
+  getFBXPreviewProperties: vi.fn<(id: number) => { name?: string; attributeTypes?: string[] }>((id) => ({})),
   ...overrides,
 });
 
@@ -106,17 +106,19 @@ describe("treeViewReducer", () => {
       treeChildrenLoaded(
         0,
         [
-          { id: 10, previewProperties: { name: "Child 10" } },
+          { id: 10, previewProperties: { name: "Child 10", attributeTypes: ["Mesh"] } },
           { id: 11 },
         ],
-        { name: "Custom root" }
+        { name: "Custom root", attributeTypes: ["Root"] }
       )
     );
 
     expect(nextState.nodes[0].previewProperties.name).toBe("Custom root");
+    expect(nextState.nodes[0].previewProperties.attributeTypes).toEqual(["Root"]);
     expect(nextState.nodes[0].children).toEqual([10, 11]);
     expect(nextState.nodes[10].parentId).toBe(0);
     expect(nextState.nodes[10].previewProperties.name).toBe("Child 10");
+    expect(nextState.nodes[10].previewProperties.attributeTypes).toEqual(["Mesh"]);
     expect(nextState.nodes[11].previewProperties.name).toContain(".$Node 11");
   });
 
@@ -125,7 +127,12 @@ describe("treeViewReducer", () => {
       ...initialTreeViewState,
       nodes: {
         ...initialTreeViewState.nodes,
-        5: { ...initialTreeViewState.nodes[0], id: 5, parentId: null, previewProperties: { name: "Old name" } },
+        5: {
+          ...initialTreeViewState.nodes[0],
+          id: 5,
+          parentId: null,
+          previewProperties: { name: "Old name", attributeTypes: ["Light"] },
+        },
       },
     };
 
@@ -133,6 +140,7 @@ describe("treeViewReducer", () => {
 
     expect(nextState.nodes[5].parentId).toBe(0);
     expect(nextState.nodes[5].previewProperties.name).toBe("Old name");
+    expect(nextState.nodes[5].previewProperties.attributeTypes).toEqual(["Light"]);
   });
 
   it("selects a node and clears any previous selection", () => {
@@ -174,7 +182,7 @@ describe("createTreeViewMiddleware", () => {
   it("fetches children when expanding a node without cached data", () => {
     const { store, platform } = createTreeStore({
       getFBXNodeChildren: vi.fn<(id: number) => number[]>((id) => [2, 3]),
-      getFBXPreviewProperties: vi.fn((id: number) => ({ name: `Node ${id}` })),
+      getFBXPreviewProperties: vi.fn((id: number) => ({ name: `Node ${id}`, attributeTypes: ["Node"] })),
     });
 
     store.dispatch(requestExpandNode(0));
@@ -185,6 +193,7 @@ describe("createTreeViewMiddleware", () => {
     expect(store.getState().tree.nodes[0].children).toEqual([2, 3]);
     expect(store.getState().tree.nodes[2].parentId).toBe(0);
     expect(store.getState().tree.nodes[2].previewProperties.name).toBe("Node 2");
+    expect(store.getState().tree.nodes[2].previewProperties.attributeTypes).toEqual(["Node"]);
     expect(store.getState().tree.nodes[0].isLoading).toBe(false);
   });
 

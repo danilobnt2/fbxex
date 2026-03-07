@@ -37,6 +37,7 @@ const TreeNodeRow: React.FC<TreeNodeRowProps> = ({ id, depth, rootId, tree }) =>
   const isRootWaiting = isRoot && node.children === null && !node.isLoading && !node.error;
   const canToggle = !isLeaf && !isRootWaiting;
   const label = node.previewProperties?.name || `.$Node ${id}`;
+  const attributeTypes = node.previewProperties?.attributeTypes?.length ? node.previewProperties.attributeTypes.join(", ") : null;
   const indent = depth * 16;
 
   const handleToggle = () => {
@@ -95,7 +96,11 @@ const TreeNodeRow: React.FC<TreeNodeRowProps> = ({ id, depth, rootId, tree }) =>
               {label}
               {isRootWaiting && " (select a file to load)"}
             </span>
-            <span className="ht-node-id">#{node.id}</span>
+            <span className="ht-node-details">
+              {attributeTypes}
+              {attributeTypes ? " " : ""}
+              [#{node.id}]
+            </span>
           </div>
 
           <div className="ht-statuses">

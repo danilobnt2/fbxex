@@ -12,9 +12,7 @@ permissions:
 env:
   NODE_VERSION: "22"
   ULTRALIGHT_OCI: ghcr.io/${{ github.repository }}/ultralightsdk-1.4.0.7z@sha256:8ad467524e74eeb14b80813263ded3b9b6e6b85db8c3b6c8ab288318614f05dc
-  FBX_SDK_OCI: ghcr.io/${{ github.repository }}/fbxsdk-2020.3.7.zip@sha256:738ba8a18a683f60d2e1ac6e1694a41169f12a8ba0c4b63535c9a1d787b160d3
   ULTRALIGHT_SDK_PATH: ${{ github.workspace }}\ultralight-sdk
-  FBX_SDK_PATH: ${{ github.workspace }}\fbx-sdk
   CMAKE_BUILD_DIR: ${{ github.workspace }}\build\runtime
 
 jobs:
@@ -97,9 +95,7 @@ jobs:
           $ErrorActionPreference = "Stop"
           oras login ghcr.io -u $env:GITHUB_ACTOR -p $env:ORAS_PASSWORD
           oras pull $env:ULTRALIGHT_OCI -o ultralight-sdk.7z
-          oras pull $env:FBX_SDK_OCI -o fbx-sdk.zip
           7z x ultralight-sdk.7z -oultralight-sdk | Out-Null
-          7z x fbx-sdk.zip -ofbx-sdk | Out-Null
 
       - name: Build UI
         working-directory: ui
@@ -127,8 +123,7 @@ jobs:
             -DFBXEX_VERSION="$($env:RELEASE_TAG)" `
             -DCMAKE_C_COMPILER=clang-cl `
             -DCMAKE_CXX_COMPILER=clang-cl `
-            -DULTRALIGHT_SDK_PATH="$env:ULTRALIGHT_SDK_PATH" `
-            -DFBX_SDK_PATH="$env:FBX_SDK_PATH"
+            -DULTRALIGHT_SDK_PATH="$env:ULTRALIGHT_SDK_PATH"
 
       - name: Build runtime
         shell: pwsh

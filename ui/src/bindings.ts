@@ -9,7 +9,7 @@ export class UltralightPlatformUtils implements IPlatformUtils {
   selectFbxFile = () => ul.selectFbxFile();
   closeWindow = () => ul.closeWindow();
   openAboutDialog = () => ul.openAboutDialog();
-  createFileSelectedAction = () => fileSelected();
+  createFileSelectedAction = () => fileSelected(ul.getFBXFormat());
   onPlatformNotAvailable = () => alert("Ultralight not available.");
 }
 
@@ -17,9 +17,13 @@ export class UltralightTreePlatform implements ITreePlatform {
   isPlatformAvailable = () => ul.isAvailable;
   getFBXNodeChildren = (id: TreeNodeId) => ul.getFBXNodeChildren(id);
   getFBXNodeProperties = (id: TreeNodeId) => ul.getFBXNode(id).props;
-  getFBXPreviewProperties = (id: TreeNodeId) => ({
-    name: ul.getFBXNode(id).props.name,
-  });
+  getFBXPreviewProperties = (id: TreeNodeId) => {
+    const props = ul.getFBXNode(id).props;
+    return {
+      name: props.name,
+      attributeTypes: props.attributes.map((attribute) => attribute.type),
+    };
+  };
 }
 
 export class ReduxHierarchyTreeService implements IHierarchyTreeService {

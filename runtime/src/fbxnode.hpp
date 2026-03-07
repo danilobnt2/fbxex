@@ -16,11 +16,17 @@ class FBXNodeProps {
         std::vector<nlohmann::json> attributes;
 };
 
+enum class FBXFormat {
+    Binary,
+    ASCII
+};
+
 class IFBXClient {
     public:
         virtual ~IFBXClient() = default;
         virtual const FBXNodeProps* getNodeProps(size_t id) const = 0;
         virtual std::vector<size_t> getNodeChildren(size_t id) const = 0;
+        virtual FBXFormat getFormat() const = 0;
 };
 
 class FBXNode {

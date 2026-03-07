@@ -153,6 +153,7 @@ TEST_CASE("BindFBXNode wraps node id and props into JS object") {
         std::vector<size_t> getNodeChildren(size_t id) const override {
             return id == 9 ? std::vector<size_t>{2, 4} : std::vector<size_t>{};
         }
+        FBXFormat getFormat() const override { return FBXFormat::Binary; }
         FBXNodeProps props;
     };
 
